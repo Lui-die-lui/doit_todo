@@ -1,0 +1,162 @@
+{
+  "schemaVersion": "2.0.0",
+  "project": "DO:IT — Plan-Do-See diary",
+  "generatedFrom": "src/db/schema.ts (Drizzle ORM) + drizzle/0000_natural_human_torch.sql",
+  "notes": "All table names are prefixed with doit_ because this project shares one Postgres database with other unrelated projects.",
+  "timeRules": {
+    "timestampStorage": "All instant-in-time columns are timestamptz (stored as UTC in Postgres).",
+    "displayTimeZone": "Asia/Seoul",
+    "dateOnlyColumns": "Period/deadline fields (start_date, end_date, due_date, period_start, period_end, prev_start_date, prev_end_date) are plain `date` columns with no time component.",
+    "overdueRule": "A task is overdue when: deleted_at IS NULL AND status != 'DONE' AND due_date < (today's calendar date in Asia/Seoul). A completed task is never overdue, even if due_date has passed.",
+    "minutesRule": "All durations (estimated_minutes, actual_minutes) are stored and aggregated as integer minutes in the database. Hour/minute display formatting happens only in the UI layer."
+  },
+  "softDeleteRule": "plans.deleted_at and tasks.deleted_at mark soft deletion. Every normal list query and every aggregation MUST filter deleted_at IS NULL. work_logs, completion_events, plan_revisions, and reflections have no deleted_at (they are immutable history/records and are cascade-deleted only if their parent row is hard-deleted, which this app never does).",
+  "completionDedupRule": {
+    "description": "Prevents duplicate completion under rapid/duplicate button clicks at the database level, not just in the UI.",
+    "mechanism": [
+      "completeTaskAction runs inside a single DB transaction that SELECTs the task row FOR UPDATE, serializing concurrent completion attempts on the same task.",
+      "If the task is already status='DONE', no new completion_events row is created; the call returns an 'already done' result instead of an error.",
+      "Otherwise nextCycle = tasks.completion_cycle + 1, one completion_events row (task_id, nextCycle, idempotencyKey) is inserted, and tasks.status/completed_at/completion_cycle are updated -- in that order, inside the same transaction.",
+      "completion_events.idempotency_key UNIQUE and completion_events(task_id, completion_cycle) UNIQUE are the final backstop: if two transactions somehow still race past the row lock, the second INSERT raises a unique_violation (SQLSTATE 23505), which the application catches and treats as 'already done' rather than surfacing an error.",
+      "Uncompleting a task sets status='TODO' and completed_at=NULL. It never deletes or rewrites past completion_events rows and never touches completion_cycle. Re-completing afterwards consumes the next cycle number."
+    ]
+  },
+  "aggregationDefinitions": {
+    "scope": "A retrospective (`reflections`/'See' screen) is computed over a scope: either all non-deleted tasks of one plan, or all non-deleted tasks whose due_date falls within a chosen [start, end] range across plans.",
+    "plannedCount": "count(scoped tasks where deleted_at IS NULL)",
+    "doneCount": "count(scoped tasks where deleted_at IS NULL AND status = 'DONE') -- the CURRENT status count, not a count of completion_events rows.",
+    "overdueCount": "count(scoped tasks where deleted_at IS NULL AND status != 'DONE' AND due_date < today_in_seoul)",
+    "blockedCount": "count(DISTINCT task_id) among work_logs whose task is in scope AND blocker_reason IS NOT NULL AND trim(blocker_reason) != '' -- a unique-task count, NOT a count of work_log rows.",
+    "estimatedMinutesTotal": "sum(scoped tasks.estimated_minutes)",
+    "actualMinutesTotal": "sum(work_logs.actual_minutes) for work_logs whose task is in scope",
+    "diffMinutes": "actualMinutesTotal - estimatedMinutesTotal",
+    "zeroFallback": "Every aggregate defaults to 0 (never null/NaN) when the scope is empty.",
+    "evidenceDrilldown": "Each aggregate is returned alongside the exact id list that produced it (plannedTaskIds, doneTaskIds, overdueTaskIds, blockedTaskIds, actualWorkLogIds) so the UI's evidence screen can render the underlying rows and re-derive the same total for verification."
+  },
+  "exportFormat": {
+    "endpoint": "GET /api/export",
+    "contentType": "application/json; charset=utf-8",
+    "topLevelFields": [
+      "schemaVersion",
+      "exportedAt (ISO-8601 UTC timestamp of when the export was generated)",
+      "plans",
+      "planRevisions",
+      "tasks",
+      "workLogs",
+      "completionEvents",
+      "reflections"
+    ],
+    "excludes": "Never includes SUPABASE_CONNECTION_KEY, SUPABASE_SECRET_KEY, SUPABASE_URL, or any other secret/connection value."
+  },
+  "tables": [
+    {
+      "name": "doit_plans",
+      "description": "Top-level Plan unit of the Plan-Do-See cycle.",
+      "primaryKey": ["id"],
+      "columns": [
+        { "name": "id", "type": "serial (integer)", "nullable": false },
+        { "name": "title", "type": "varchar(200)", "nullable": false },
+        { "name": "description", "type": "text", "nullable": false, "default": "''" },
+        { "name": "start_date", "type": "date", "nullable": false },
+        { "name": "end_date", "type": "date", "nullable": false },
+        { "name": "priority", "type": "enum doit_priority (HIGH|MEDIUM|LOW)", "nullable": false },
+        { "name": "success_criteria", "type": "text", "nullable": false },
+        { "name": "estimated_minutes", "type": "integer", "nullable": false },
+        { "name": "carried_improvement", "type": "text", "nullable": true },
+        { "name": "source_reflection_id", "type": "integer", "nullable": true, "foreignKey": { "table": "doit_reflections", "column": "id", "onDelete": "set null" } },
+        { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+        { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+        { "name": "deleted_at", "type": "timestamptz", "nullable": true }
+      ],
+      "softDelete": "deleted_at IS NULL required in all normal list/aggregation queries."
+    },
+    {
+      "name": "doit_plan_revisions",
+      "description": "Pre-edit snapshot of a plan, written every time the plan is revised. The plan's own id never changes across revisions.",
+      "primaryKey": ["id"],
+      "uniqueConstraints": [{ "name": "doit_plan_revisions_plan_version_unique", "columns": ["plan_id", "version"] }],
+      "columns": [
+        { "name": "id", "type": "serial (integer)", "nullable": false },
+        { "name": "plan_id", "type": "integer", "nullable": false, "foreignKey": { "table": "doit_plans", "column": "id", "onDelete": "cascade" } },
+        { "name": "version", "type": "integer", "nullable": false },
+        { "name": "prev_title", "type": "varchar(200)", "nullable": false },
+        { "name": "prev_description", "type": "text", "nullable": false },
+        { "name": "prev_start_date", "type": "date", "nullable": false },
+        { "name": "prev_end_date", "type": "date", "nullable": false },
+        { "name": "prev_priority", "type": "enum doit_priority", "nullable": false },
+        { "name": "prev_success_criteria", "type": "text", "nullable": false },
+        { "name": "prev_estimated_minutes", "type": "integer", "nullable": false },
+        { "name": "reason", "type": "text", "nullable": false },
+        { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+      ]
+    },
+    {
+      "name": "doit_tasks",
+      "description": "A to-do item belonging to a plan.",
+      "primaryKey": ["id"],
+      "columns": [
+        { "name": "id", "type": "serial (integer)", "nullable": false },
+        { "name": "plan_id", "type": "integer", "nullable": false, "foreignKey": { "table": "doit_plans", "column": "id", "onDelete": "cascade" } },
+        { "name": "title", "type": "varchar(200)", "nullable": false },
+        { "name": "description", "type": "text", "nullable": false, "default": "''" },
+        { "name": "due_date", "type": "date", "nullable": false },
+        { "name": "priority", "type": "enum doit_priority (HIGH|MEDIUM|LOW)", "nullable": false },
+        { "name": "tag", "type": "varchar(50)", "nullable": false, "default": "''" },
+        { "name": "estimated_minutes", "type": "integer", "nullable": false },
+        { "name": "status", "type": "enum doit_task_status (TODO|DONE)", "nullable": false, "default": "TODO" },
+        { "name": "completed_at", "type": "timestamptz", "nullable": true },
+        { "name": "completion_cycle", "type": "integer", "nullable": false, "default": 0 },
+        { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+        { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+        { "name": "deleted_at", "type": "timestamptz", "nullable": true }
+      ],
+      "softDelete": "deleted_at IS NULL required in all normal list/aggregation queries."
+    },
+    {
+      "name": "doit_work_logs",
+      "description": "An execution ('Do') record: an actual work session against a task. Never mutates plan/task estimates.",
+      "primaryKey": ["id"],
+      "columns": [
+        { "name": "id", "type": "serial (integer)", "nullable": false },
+        { "name": "task_id", "type": "integer", "nullable": false, "foreignKey": { "table": "doit_tasks", "column": "id", "onDelete": "cascade" } },
+        { "name": "start_at", "type": "timestamptz", "nullable": false },
+        { "name": "end_at", "type": "timestamptz", "nullable": false, "validation": "end_at >= start_at, enforced in the server action before insert" },
+        { "name": "actual_minutes", "type": "integer", "nullable": false, "validation": "= round((end_at - start_at) in minutes), computed server-side and persisted" },
+        { "name": "blocker_reason", "type": "text", "nullable": true },
+        { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+      ]
+    },
+    {
+      "name": "doit_completion_events",
+      "description": "One row per successful completion of a task's current completion cycle. Exists to make duplicate-completion prevention a database-level guarantee, not just an application/UI concern.",
+      "primaryKey": ["id"],
+      "uniqueConstraints": [
+        { "name": "doit_completion_events_idempotency_key_unique", "columns": ["idempotency_key"] },
+        { "name": "doit_completion_events_task_cycle_unique", "columns": ["task_id", "completion_cycle"] }
+      ],
+      "columns": [
+        { "name": "id", "type": "serial (integer)", "nullable": false },
+        { "name": "task_id", "type": "integer", "nullable": false, "foreignKey": { "table": "doit_tasks", "column": "id", "onDelete": "cascade" } },
+        { "name": "completion_cycle", "type": "integer", "nullable": false },
+        { "name": "idempotency_key", "type": "varchar(100)", "nullable": false },
+        { "name": "completed_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+      ]
+    },
+    {
+      "name": "doit_reflections",
+      "description": "A 'See' retrospective over a plan/period. carried_plan_id records which new plan this reflection's improvement was carried forward into.",
+      "primaryKey": ["id"],
+      "columns": [
+        { "name": "id", "type": "serial (integer)", "nullable": false },
+        { "name": "plan_id", "type": "integer", "nullable": false, "foreignKey": { "table": "doit_plans", "column": "id", "onDelete": "cascade" } },
+        { "name": "period_start", "type": "date", "nullable": false },
+        { "name": "period_end", "type": "date", "nullable": false },
+        { "name": "summary", "type": "text", "nullable": false },
+        { "name": "improvement", "type": "text", "nullable": false },
+        { "name": "carried_plan_id", "type": "integer", "nullable": true, "foreignKey": { "table": "doit_plans", "column": "id", "onDelete": "set null" } },
+        { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+        { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+      ]
+    }
+  ]
+}
