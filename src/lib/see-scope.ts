@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq, gte, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { tasks } from "@/db/schema";
+import { plans, tasks } from "@/db/schema";
 
 export type SeeScope =
   | { type: "plan"; planId: number }
@@ -28,17 +28,30 @@ export function parseScope(raw: string | undefined): SeeScope | null {
   return null;
 }
 
-export async function getTasksForScope(scope: SeeScope) {
+/** Both branches join through `plans` and filter by owner -- a scope only ever
+ * reaches into the caller's own tasks, whether picked by plan or by due-date range. */
+export async function getTasksForScope(userId: string, scope: SeeScope) {
   if (scope.type === "plan") {
     return db
-      .select()
+      .select({ task: tasks })
       .from(tasks)
-      .where(and(eq(tasks.planId, scope.planId), isNull(tasks.deletedAt)));
+      .innerJoin(plans, eq(tasks.planId, plans.id))
+      .where(and(eq(tasks.planId, scope.planId), eq(plans.userId, userId), isNull(tasks.deletedAt)))
+      .then((rows) => rows.map((r) => r.task));
   }
   return db
-    .select()
+    .select({ task: tasks })
     .from(tasks)
-    .where(and(gte(tasks.dueDate, scope.start), lte(tasks.dueDate, scope.end), isNull(tasks.deletedAt)));
+    .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(
+      and(
+        gte(tasks.dueDate, scope.start),
+        lte(tasks.dueDate, scope.end),
+        eq(plans.userId, userId),
+        isNull(tasks.deletedAt),
+      ),
+    )
+    .then((rows) => rows.map((r) => r.task));
 }
 
 export function describeScope(scope: SeeScope, planTitle?: string): string {

@@ -4,16 +4,22 @@ import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { tasks, workLogs } from "@/db/schema";
+import { plans, tasks, workLogs } from "@/db/schema";
 import type { ActionState } from "@/lib/action-state";
 import { computeActualMinutes, seoulLocalInputToUtcDate } from "@/lib/date";
-import { GENERIC_SAVE_ERROR } from "@/lib/db-errors";
+import { AUTH_REQUIRED_ERROR, GENERIC_SAVE_ERROR } from "@/lib/db-errors";
+import { getSessionUserId } from "@/lib/session";
 import { workLogInputSchema, zodErrorToFieldErrors, type WorkLogInput } from "@/lib/validation";
 
 export async function createWorkLogAction(
   prevState: ActionState<keyof WorkLogInput>,
   formData: FormData,
 ): Promise<ActionState<keyof WorkLogInput>> {
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return { status: "error", message: AUTH_REQUIRED_ERROR };
+  }
+
   const parsed = workLogInputSchema.safeParse({
     taskId: formData.get("taskId"),
     startAt: formData.get("startAt"),
@@ -42,7 +48,8 @@ export async function createWorkLogAction(
   const [task] = await db
     .select({ id: tasks.id })
     .from(tasks)
-    .where(and(eq(tasks.id, parsed.data.taskId), isNull(tasks.deletedAt)));
+    .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(and(eq(tasks.id, parsed.data.taskId), eq(plans.userId, userId), isNull(tasks.deletedAt)));
   if (!task) {
     return { status: "error", message: "존재하지 않거나 삭제된 할 일입니다." };
   }

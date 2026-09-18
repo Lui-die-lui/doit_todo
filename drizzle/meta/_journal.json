@@ -8,6 +8,20 @@
       "when": 1789608516729,
       "tag": "0000_natural_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789721262503,
+      "tag": "0001_t07_auth_and_plan_owner",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789734569219,
+      "tag": "0002_t07_plans_user_id_not_null",
+      "breakpoints": true
     }
   ]
 }

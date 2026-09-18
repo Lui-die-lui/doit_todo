@@ -10,6 +10,7 @@ import {
   unique,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { user } from "./auth-schema";
 
 export const priorityEnum = pgEnum("doit_priority", ["HIGH", "MEDIUM", "LOW"]);
 export const taskStatusEnum = pgEnum("doit_task_status", ["TODO", "DONE"]);
@@ -21,6 +22,15 @@ export const taskStatusEnum = pgEnum("doit_task_status", ["TODO", "DONE"]);
  */
 export const plans = pgTable("doit_plans", {
   id: serial("id").primaryKey(),
+  // Ownership root for the whole Plan/Task/WorkLog tree -- tasks are owned via
+  // plan_id, work logs via task_id. Locked NOT NULL as of migration 0002, once
+  // every plan in the DB was confirmed to belong to a real account (there was no
+  // actual T06 legacy data left to backfill -- see docs/T07_AUTH_IMPLEMENTATION.md).
+  // onDelete: cascade so deleting an auth user deletes their plans (and, via the
+  // existing plan_id/task_id cascades below, everything under them).
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
   title: varchar("title", { length: 200 }).notNull(),
   description: text("description").notNull().default(""),
   startDate: date("start_date").notNull(),

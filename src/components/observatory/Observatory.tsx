@@ -242,6 +242,7 @@ export function Observatory({
   canNavigate = false,
   onPrev,
   onNext,
+  viewerName,
 }: {
   plan: ObservatoryPlan;
   layout: ConstellationLayout;
@@ -257,6 +258,9 @@ export function Observatory({
   canNavigate?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
+  /** The signed-in viewer's display name, for the "{name}님의 계획 별자리예요." caption --
+   * this hero is only ever shown to its owner now (no public/guest link-sharing). */
+  viewerName: string;
 }) {
   const [hoverId, setHoverId] = useState<number | null>(null);
   const [pinnedId, setPinnedId] = useState<number | null>(null);
@@ -504,11 +508,11 @@ export function Observatory({
           <div
             ref={taskPanelRef}
             className="obs-task-panel pointer-events-auto mt-4 hidden flex-col overflow-hidden rounded-2xl border border-ink-900/15 bg-[#F5F5F1]/80 shadow-[0_12px_32px_-12px_rgba(17,17,15,0.3)] backdrop-blur-md backdrop-saturate-150 lg:mt-3 lg:flex"
-            style={{ height: taskPanelMaxH ?? 240 }}
+            style={{ maxHeight: taskPanelMaxH ?? 240 }}
           >
             <div className="flex shrink-0 items-baseline justify-between border-b border-ink-900/10 px-4 pb-2 pt-3">
-              <h2 className="label-coord text-[10px] text-ink-900">TASKS / 할 일 ({taskRows.length})</h2>
-              <Link href="/tasks" className="label-coord text-[9px] text-ink-400 hover:text-ink-900">
+              <h2 className="label-coord text-xs text-ink-900">TASKS / 할 일 ({taskRows.length})</h2>
+              <Link href="/tasks" className="label-coord text-[11px] text-ink-400 hover:text-ink-900">
                 전체 →
               </Link>
             </div>
@@ -518,12 +522,12 @@ export function Observatory({
           </div>
         </div>
 
-        {/* ---------- top-right: observer (reserved for future account info) ---------- */}
+        {/* ---------- top-right: observer ---------- */}
         <div className="order-5 mt-4 border-t border-line pt-2 text-right lg:absolute lg:right-8 lg:top-0 lg:z-10 lg:mt-0 lg:w-72 lg:border-0 lg:pt-0 lg:pointer-events-none">
-          <p className="label-coord text-[10px] text-ink-400">PUBLIC OBSERVATORY</p>
-          <p className="mt-1 label-coord text-[11px] text-ink-900">GUEST VIEW</p>
+          <p className="label-coord text-[10px] text-ink-400">PRIVATE</p>
+          <p className="mt-1 label-coord text-[11px] text-ink-900">MY VIEW</p>
           <p className="ml-auto mt-1 max-w-[16rem] text-xs leading-relaxed text-ink-500 lg:text-[11px]">
-            로그인 없이 공개된 기록입니다. 링크가 있는 누구나 볼 수 있어요.
+            {viewerName}님의 계획 별자리예요.
           </p>
 
           {/* DO + SEE preview, plain (no glass panel) -- fills the empty vertical space between
@@ -591,7 +595,7 @@ export function Observatory({
             </dl>
             <Link
               href={`/see?planId=${plan.id}`}
-              className="label-coord mt-3 block border border-line-strong px-4 py-2 text-center text-[10px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
+              className="label-coord mt-3 block rounded-sm border border-line-strong px-4 py-2 text-center text-[10px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
             >
               SEE / 돌아보기 열기 →
             </Link>

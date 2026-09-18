@@ -4,11 +4,19 @@ import { db } from "@/db";
 import { completionEvents, planRevisions, plans, reflections, tasks, workLogs } from "@/db/schema";
 import { compareTasksDefaultOrder } from "./tasks-sort";
 
-export async function getActivePlans() {
+/**
+ * Every function here takes the caller's verified session `userId` and filters by it --
+ * tasks/work logs/etc. are owned transitively through their parent plan (see
+ * CLAUDE.md 5.1). Nothing in this file trusts an id alone; a mismatched userId simply
+ * yields no rows, which callers turn into a 404/empty state rather than a 403, so a
+ * plan/task's existence isn't leaked to a non-owner.
+ */
+
+export async function getActivePlans(userId: string) {
   return db
     .select()
     .from(plans)
-    .where(isNull(plans.deletedAt))
+    .where(and(eq(plans.userId, userId), isNull(plans.deletedAt)))
     .orderBy(desc(plans.startDate), asc(plans.id));
 }
 
@@ -24,67 +32,96 @@ export function pickHomePlan<T extends { startDate: string; endDate: string; cre
 }
 
 /** The plan to show on the home screen: one whose date range covers today (Seoul), else the most recently created active plan. */
-export async function getHomePlan(todaySeoul: string) {
-  const active = await getActivePlans();
+export async function getHomePlan(userId: string, todaySeoul: string) {
+  const active = await getActivePlans(userId);
   return pickHomePlan(active, todaySeoul);
 }
 
-export async function getAllPlans() {
-  return db.select().from(plans).orderBy(desc(plans.createdAt), asc(plans.id));
+export async function getAllPlans(userId: string) {
+  return db
+    .select()
+    .from(plans)
+    .where(eq(plans.userId, userId))
+    .orderBy(desc(plans.createdAt), asc(plans.id));
 }
 
-export async function getPlanById(planId: number) {
-  const [plan] = await db.select().from(plans).where(eq(plans.id, planId));
+export async function getPlanById(userId: string, planId: number) {
+  const [plan] = await db
+    .select()
+    .from(plans)
+    .where(and(eq(plans.id, planId), eq(plans.userId, userId)));
   return plan ?? null;
 }
 
-export async function getPlanRevisions(planId: number) {
+export async function getPlanRevisions(userId: string, planId: number) {
   return db
-    .select()
+    .select({ revision: planRevisions })
     .from(planRevisions)
-    .where(eq(planRevisions.planId, planId))
-    .orderBy(desc(planRevisions.version));
+    .innerJoin(plans, eq(planRevisions.planId, plans.id))
+    .where(and(eq(planRevisions.planId, planId), eq(plans.userId, userId)))
+    .orderBy(desc(planRevisions.version))
+    .then((rows) => rows.map((r) => r.revision));
 }
 
-export async function getActiveTasksForPlan(planId: number) {
+export async function getActiveTasksForPlan(userId: string, planId: number) {
   const rows = await db
-    .select()
+    .select({ task: tasks })
     .from(tasks)
-    .where(and(eq(tasks.planId, planId), isNull(tasks.deletedAt)));
+    .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(and(eq(tasks.planId, planId), eq(plans.userId, userId), isNull(tasks.deletedAt)))
+    .then((rows) => rows.map((r) => r.task));
   return [...rows].sort(compareTasksDefaultOrder);
 }
 
-export async function getAllActiveTasks() {
-  return db.select().from(tasks).where(isNull(tasks.deletedAt));
+export async function getAllActiveTasks(userId: string) {
+  return db
+    .select({ task: tasks })
+    .from(tasks)
+    .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(and(eq(plans.userId, userId), isNull(tasks.deletedAt)))
+    .then((rows) => rows.map((r) => r.task));
 }
 
-export async function getAllActiveTasksWithPlan() {
+export async function getAllActiveTasksWithPlan(userId: string) {
   return db
     .select({ task: tasks, plan: plans })
     .from(tasks)
     .innerJoin(plans, eq(tasks.planId, plans.id))
-    .where(isNull(tasks.deletedAt));
+    .where(and(eq(plans.userId, userId), isNull(tasks.deletedAt)));
 }
 
-export async function getTaskById(taskId: number) {
-  const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
-  return task ?? null;
+export async function getTaskById(userId: string, taskId: number) {
+  const [row] = await db
+    .select({ task: tasks })
+    .from(tasks)
+    .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(and(eq(tasks.id, taskId), eq(plans.userId, userId)));
+  return row?.task ?? null;
 }
 
-export async function getWorkLogsForTaskIds(taskIds: number[]) {
+export async function getWorkLogsForTaskIds(userId: string, taskIds: number[]) {
   if (taskIds.length === 0) return [];
-  return db.select().from(workLogs).where(inArray(workLogs.taskId, taskIds));
-}
-
-export async function getWorkLogsForTask(taskId: number) {
   return db
-    .select()
+    .select({ workLog: workLogs })
     .from(workLogs)
-    .where(eq(workLogs.taskId, taskId))
-    .orderBy(desc(workLogs.startAt));
+    .innerJoin(tasks, eq(workLogs.taskId, tasks.id))
+    .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(and(inArray(workLogs.taskId, taskIds), eq(plans.userId, userId)))
+    .then((rows) => rows.map((r) => r.workLog));
 }
 
-export async function getAllWorkLogsWithContext() {
+export async function getWorkLogsForTask(userId: string, taskId: number) {
+  return db
+    .select({ workLog: workLogs })
+    .from(workLogs)
+    .innerJoin(tasks, eq(workLogs.taskId, tasks.id))
+    .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(and(eq(workLogs.taskId, taskId), eq(plans.userId, userId)))
+    .orderBy(desc(workLogs.startAt))
+    .then((rows) => rows.map((r) => r.workLog));
+}
+
+export async function getAllWorkLogsWithContext(userId: string) {
   return db
     .select({
       workLog: workLogs,
@@ -94,58 +131,68 @@ export async function getAllWorkLogsWithContext() {
     .from(workLogs)
     .innerJoin(tasks, eq(workLogs.taskId, tasks.id))
     .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(eq(plans.userId, userId))
     .orderBy(desc(workLogs.startAt));
 }
 
-export async function getReflectionsForPlan(planId: number) {
+export async function getReflectionsForPlan(userId: string, planId: number) {
   return db
-    .select()
+    .select({ reflection: reflections })
     .from(reflections)
-    .where(eq(reflections.planId, planId))
-    .orderBy(desc(reflections.periodEnd));
+    .innerJoin(plans, eq(reflections.planId, plans.id))
+    .where(and(eq(reflections.planId, planId), eq(plans.userId, userId)))
+    .orderBy(desc(reflections.periodEnd))
+    .then((rows) => rows.map((r) => r.reflection));
 }
 
 /** The plan this plan's reflection improvement was carried into (first match), for the "NEXT" bearing line. */
-export async function getCarriedNextPlan(planId: number): Promise<{ id: number; title: string } | null> {
+export async function getCarriedNextPlan(userId: string, planId: number): Promise<{ id: number; title: string } | null> {
   const [row] = await db
     .select({ id: plans.id, title: plans.title })
     .from(reflections)
     .innerJoin(plans, eq(reflections.carriedPlanId, plans.id))
-    .where(eq(reflections.planId, planId))
+    .where(and(eq(reflections.planId, planId), eq(plans.userId, userId)))
     .orderBy(desc(reflections.createdAt))
     .limit(1);
   return row ?? null;
 }
 
-export async function getAllReflections() {
+export async function getAllReflections(userId: string) {
   return db
     .select({ reflection: reflections, plan: plans })
     .from(reflections)
     .innerJoin(plans, eq(reflections.planId, plans.id))
+    .where(eq(plans.userId, userId))
     .orderBy(desc(reflections.createdAt));
 }
 
-export async function countCompletionEventsForTask(taskId: number) {
+export async function countCompletionEventsForTask(userId: string, taskId: number) {
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(completionEvents)
-    .where(eq(completionEvents.taskId, taskId));
+    .innerJoin(tasks, eq(completionEvents.taskId, tasks.id))
+    .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(and(eq(completionEvents.taskId, taskId), eq(plans.userId, userId)));
   return row?.count ?? 0;
 }
 
-export async function getCompletionEventsForTask(taskId: number) {
+export async function getCompletionEventsForTask(userId: string, taskId: number) {
   return db
-    .select()
+    .select({ event: completionEvents })
     .from(completionEvents)
-    .where(eq(completionEvents.taskId, taskId))
-    .orderBy(desc(completionEvents.completionCycle));
+    .innerJoin(tasks, eq(completionEvents.taskId, tasks.id))
+    .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(and(eq(completionEvents.taskId, taskId), eq(plans.userId, userId)))
+    .orderBy(desc(completionEvents.completionCycle))
+    .then((rows) => rows.map((r) => r.event));
 }
 
 /** Distinct tag values currently in use, for the tasks filter UI. */
-export async function getDistinctTags() {
+export async function getDistinctTags(userId: string) {
   const rows = await db
     .selectDistinct({ tag: tasks.tag })
     .from(tasks)
-    .where(and(isNull(tasks.deletedAt), sql`${tasks.tag} <> ''`));
+    .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(and(eq(plans.userId, userId), isNull(tasks.deletedAt), sql`${tasks.tag} <> ''`));
   return rows.map((r) => r.tag).sort((a, b) => a.localeCompare(b));
 }

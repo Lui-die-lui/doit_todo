@@ -2,18 +2,20 @@ import { notFound } from "next/navigation";
 import { getActivePlans, getTaskById } from "@/lib/queries";
 import { updateTaskAction } from "@/lib/actions/tasks";
 import { TaskForm } from "@/components/TaskForm";
+import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditTaskPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await requireSessionOrRedirect();
   const { id } = await params;
   const taskId = Number(id);
   if (!Number.isInteger(taskId) || taskId <= 0) notFound();
 
-  const task = await getTaskById(taskId);
+  const task = await getTaskById(session.user.id, taskId);
   if (!task || task.deletedAt) notFound();
 
-  const plans = await getActivePlans();
+  const plans = await getActivePlans(session.user.id);
   const boundAction = updateTaskAction.bind(null, taskId);
 
   return (

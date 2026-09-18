@@ -21,3 +21,8 @@ export function isUniqueViolation(err: unknown): boolean {
 /** Generic message shown to users; never leaks the raw DB error. */
 export const GENERIC_SAVE_ERROR =
   "저장 중 오류가 발생했습니다. 네트워크 상태를 확인하고 잠시 후 다시 시도해주세요.";
+
+/** Shown by every Server Action when there's no session at all -- distinct from the
+ * per-entity "존재하지 않거나..." message used for an authenticated user's own-someone-
+ * else's-data case, so the two are distinguishable in the T07 evidence log. */
+export const AUTH_REQUIRED_ERROR = "로그인이 필요합니다.";

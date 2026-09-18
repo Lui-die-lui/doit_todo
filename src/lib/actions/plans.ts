@@ -6,8 +6,9 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { planRevisions, plans, reflections } from "@/db/schema";
 import type { ActionState } from "@/lib/action-state";
-import { GENERIC_SAVE_ERROR } from "@/lib/db-errors";
+import { AUTH_REQUIRED_ERROR, GENERIC_SAVE_ERROR } from "@/lib/db-errors";
 import { hmToMinutes } from "@/lib/date";
+import { getSessionUserId } from "@/lib/session";
 import {
   planInputSchema,
   planRevisionInputSchema,
@@ -33,6 +34,11 @@ export async function createPlanAction(
   prevState: ActionState<keyof PlanInput>,
   formData: FormData,
 ): Promise<ActionState<keyof PlanInput>> {
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return { status: "error", message: AUTH_REQUIRED_ERROR };
+  }
+
   const parsed = planInputSchema.safeParse(readPlanInput(formData));
   if (!parsed.success) {
     return {
@@ -44,11 +50,25 @@ export async function createPlanAction(
 
   let newPlanId: number;
   try {
-    const sourceReflectionId = parsed.data.sourceReflectionId ?? null;
+    const requestedSourceReflectionId = parsed.data.sourceReflectionId ?? null;
     newPlanId = await db.transaction(async (tx) => {
+      // A sourceReflectionId is only honored if that reflection belongs (via its plan)
+      // to this same user -- otherwise a forged id could redirect a stranger's
+      // reflection's "carried to" pointer at a plan they don't own.
+      let sourceReflectionId: number | null = null;
+      if (requestedSourceReflectionId) {
+        const [owned] = await tx
+          .select({ id: reflections.id })
+          .from(reflections)
+          .innerJoin(plans, eq(reflections.planId, plans.id))
+          .where(and(eq(reflections.id, requestedSourceReflectionId), eq(plans.userId, userId)));
+        sourceReflectionId = owned?.id ?? null;
+      }
+
       const [inserted] = await tx
         .insert(plans)
         .values({
+          userId,
           title: parsed.data.title,
           description: parsed.data.description ?? "",
           startDate: parsed.data.startDate,
@@ -75,7 +95,7 @@ export async function createPlanAction(
   }
 
   revalidatePath("/plans");
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   redirect(`/plans/${newPlanId}`);
 }
 
@@ -84,6 +104,11 @@ export async function revisePlanAction(
   prevState: ActionState<keyof PlanInput | "reason">,
   formData: FormData,
 ): Promise<ActionState<keyof PlanInput | "reason">> {
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return { status: "error", message: AUTH_REQUIRED_ERROR };
+  }
+
   const parsed = planRevisionInputSchema.safeParse({
     ...readPlanInput(formData),
     reason: formData.get("reason"),
@@ -101,7 +126,7 @@ export async function revisePlanAction(
       const [current] = await tx
         .select()
         .from(plans)
-        .where(eq(plans.id, planId))
+        .where(and(eq(plans.id, planId), eq(plans.userId, userId)))
         .for("update");
 
       if (!current || current.deletedAt) {
@@ -152,21 +177,24 @@ export async function revisePlanAction(
   revalidatePath(`/plans/${planId}`);
   revalidatePath(`/plans/${planId}/history`);
   revalidatePath("/plans");
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   redirect(`/plans/${planId}`);
 }
 
 export async function archivePlanAction(formData: FormData): Promise<void> {
+  const userId = await getSessionUserId();
+  if (!userId) redirect("/");
+
   const planId = Number(formData.get("planId"));
   if (!Number.isInteger(planId) || planId <= 0) return;
 
   await db
     .update(plans)
     .set({ deletedAt: new Date(), updatedAt: new Date() })
-    .where(and(eq(plans.id, planId), isNull(plans.deletedAt)));
+    .where(and(eq(plans.id, planId), eq(plans.userId, userId), isNull(plans.deletedAt)));
 
   revalidatePath("/plans");
-  revalidatePath("/");
+  revalidatePath("/dashboard");
   revalidatePath(`/plans/${planId}`);
   redirect("/plans");
 }

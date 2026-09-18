@@ -6,18 +6,21 @@ import { PriorityBadge, TaskStatusBadge } from "@/components/Badges";
 import { formatDateOnly, formatDateTimeSeoul, isOverdue, minutesToLabel, seoulTodayDateString } from "@/lib/date";
 import { CompletionControls } from "@/components/CompletionControls";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await requireSessionOrRedirect();
+  const userId = session.user.id;
   const { id } = await params;
   const taskId = Number(id);
   if (!Number.isInteger(taskId) || taskId <= 0) notFound();
 
-  const task = await getTaskById(taskId);
+  const task = await getTaskById(userId, taskId);
   if (!task || task.deletedAt) notFound();
 
-  const [plan, logs] = await Promise.all([getPlanById(task.planId), getWorkLogsForTask(taskId)]);
+  const [plan, logs] = await Promise.all([getPlanById(userId, task.planId), getWorkLogsForTask(userId, taskId)]);
   const today = seoulTodayDateString();
   const overdue = isOverdue(task.dueDate, task.status, today);
   const actualTotal = logs.reduce((sum, l) => sum + l.actualMinutes, 0);
@@ -42,7 +45,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
           <CompletionControls taskId={task.id} status={task.status} />
           <Link
             href={`/tasks/${task.id}/edit`}
-            className="inline-flex border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink-700 hover:border-ink-900 hover:text-ink-900"
+            className="inline-flex rounded-sm border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink-700 hover:border-ink-900 hover:text-ink-900"
           >
             수정
           </Link>

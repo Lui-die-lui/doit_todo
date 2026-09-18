@@ -3,6 +3,17 @@
 import { useRef, useState, useTransition } from "react";
 import { completeTaskAction, uncompleteTaskAction } from "@/lib/actions/completion";
 
+function describeCompletionError(error: "UNAUTHORIZED" | "NOT_FOUND" | "SAVE_FAILED"): string {
+  switch (error) {
+    case "UNAUTHORIZED":
+      return "로그인이 필요합니다.";
+    case "NOT_FOUND":
+      return "존재하지 않거나 삭제된 할 일입니다.";
+    default:
+      return "저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+  }
+}
+
 export function CompletionControls({
   taskId,
   status,
@@ -29,11 +40,7 @@ export function CompletionControls({
     startTransition(async () => {
       const result = await completeTaskAction(taskId, key);
       if (!result.ok) {
-        setError(
-          result.error === "NOT_FOUND"
-            ? "존재하지 않거나 삭제된 할 일입니다."
-            : "저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
-        );
+        setError(describeCompletionError(result.error));
         return;
       }
       idempotencyKeyRef.current = null;
@@ -50,11 +57,7 @@ export function CompletionControls({
     startTransition(async () => {
       const result = await uncompleteTaskAction(taskId);
       if (!result.ok) {
-        setError(
-          result.error === "NOT_FOUND"
-            ? "존재하지 않거나 삭제된 할 일입니다."
-            : "저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
-        );
+        setError(describeCompletionError(result.error));
       }
     });
   }
@@ -68,7 +71,7 @@ export function CompletionControls({
             onClick={handleComplete}
             disabled={isPending}
             aria-busy={isPending}
-            className="inline-flex items-center gap-1 bg-ink-900 px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-sm bg-ink-900 px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span aria-hidden="true">★</span> {isPending ? "처리 중..." : "완료 처리"}
           </button>
@@ -78,7 +81,7 @@ export function CompletionControls({
             onClick={handleUncomplete}
             disabled={isPending}
             aria-busy={isPending}
-            className="inline-flex items-center border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink-700 transition-colors hover:border-ink-900 hover:text-ink-900 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center rounded-sm border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink-700 transition-colors hover:border-ink-900 hover:text-ink-900 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? "처리 중..." : "완료 취소"}
           </button>

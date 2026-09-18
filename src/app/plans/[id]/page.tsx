@@ -12,23 +12,26 @@ import { PriorityBadge, TaskStatusBadge } from "@/components/Badges";
 import { formatDateOnly, formatDateTimeSeoul, isOverdue, minutesToLabel, seoulTodayDateString } from "@/lib/date";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { ConstellationCard } from "@/components/constellation/ConstellationCard";
+import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await requireSessionOrRedirect();
+  const userId = session.user.id;
   const { id } = await params;
   const planId = Number(id);
   if (!Number.isInteger(planId) || planId <= 0) notFound();
 
-  const plan = await getPlanById(planId);
+  const plan = await getPlanById(userId, planId);
   if (!plan) notFound();
 
   const [tasks, reflections, nextPlan] = await Promise.all([
-    getActiveTasksForPlan(planId),
-    getReflectionsForPlan(planId),
-    getCarriedNextPlan(planId),
+    getActiveTasksForPlan(userId, planId),
+    getReflectionsForPlan(userId, planId),
+    getCarriedNextPlan(userId, planId),
   ]);
-  const workLogs = await getWorkLogsForTaskIds(tasks.map((t) => t.id));
+  const workLogs = await getWorkLogsForTaskIds(userId, tasks.map((t) => t.id));
   const today = seoulTodayDateString();
 
   return (
@@ -51,13 +54,13 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/plans/${plan.id}/edit`}
-            className="inline-flex border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink-700 hover:border-ink-900 hover:text-ink-900"
+            className="inline-flex rounded-sm border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink-700 hover:border-ink-900 hover:text-ink-900"
           >
             수정
           </Link>
           <Link
             href={`/plans/${plan.id}/history`}
-            className="inline-flex border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink-700 hover:border-ink-900 hover:text-ink-900"
+            className="inline-flex rounded-sm border border-line-strong bg-surface px-3 py-1.5 text-sm text-ink-700 hover:border-ink-900 hover:text-ink-900"
           >
             수정 이력
           </Link>

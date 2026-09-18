@@ -4,6 +4,7 @@ import { formatDateOnly, formatDateTimeSeoul, isOverdue, minutesToLabel, seoulTo
 import { getAllPlans, getPlanById, getWorkLogsForTaskIds } from "@/lib/queries";
 import { describeScope, parseScope, getTasksForScope } from "@/lib/see-scope";
 import { PriorityBadge, TaskStatusBadge } from "@/components/Badges";
+import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,8 @@ export default async function SeeEvidencePage({
 }: {
   searchParams: Promise<{ scope?: string; metric?: string }>;
 }) {
+  const session = await requireSessionOrRedirect();
+  const userId = session.user.id;
   const sp = await searchParams;
   const scope = parseScope(sp.scope);
   const metric = sp.metric && sp.metric in METRIC_LABELS ? sp.metric : null;
@@ -37,12 +40,12 @@ export default async function SeeEvidencePage({
   }
 
   const today = seoulTodayDateString();
-  const scopedTasks = await getTasksForScope(scope);
-  const logs = await getWorkLogsForTaskIds(scopedTasks.map((t) => t.id));
+  const scopedTasks = await getTasksForScope(userId, scope);
+  const logs = await getWorkLogsForTaskIds(userId, scopedTasks.map((t) => t.id));
   const aggregation = computeRetroAggregation(scopedTasks, logs, today);
 
-  const scopePlan = scope.type === "plan" ? await getPlanById(scope.planId) : null;
-  const allPlans = await getAllPlans();
+  const scopePlan = scope.type === "plan" ? await getPlanById(userId, scope.planId) : null;
+  const allPlans = await getAllPlans(userId);
   const planTitleById = new Map(allPlans.map((p) => [p.id, p.title]));
 
   const taskById = new Map(scopedTasks.map((t) => [t.id, t]));

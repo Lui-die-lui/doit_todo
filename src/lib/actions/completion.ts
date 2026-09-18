@@ -3,13 +3,14 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { completionEvents, tasks } from "@/db/schema";
+import { completionEvents, plans, tasks } from "@/db/schema";
 import { decideCompletion } from "@/lib/completion-logic";
 import { isUniqueViolation } from "@/lib/db-errors";
+import { getSessionUserId } from "@/lib/session";
 
 export type CompleteTaskResult =
   | { ok: true; alreadyDone: boolean }
-  | { ok: false; error: "NOT_FOUND" | "SAVE_FAILED" };
+  | { ok: false; error: "UNAUTHORIZED" | "NOT_FOUND" | "SAVE_FAILED" };
 
 /**
  * Marks a task DONE exactly once per completion cycle, even under duplicate
@@ -24,17 +25,24 @@ export async function completeTaskAction(
   taskId: number,
   idempotencyKey: string,
 ): Promise<CompleteTaskResult> {
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return { ok: false, error: "UNAUTHORIZED" };
+  }
+
   try {
     const result = await db.transaction(async (tx) => {
-      const [task] = await tx
-        .select()
+      const [row] = await tx
+        .select({ task: tasks })
         .from(tasks)
-        .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+        .innerJoin(plans, eq(tasks.planId, plans.id))
+        .where(and(eq(tasks.id, taskId), eq(plans.userId, userId), isNull(tasks.deletedAt)))
         .for("update");
 
-      if (!task) {
+      if (!row) {
         return { ok: false as const, error: "NOT_FOUND" as const };
       }
+      const task = row.task;
 
       const decision = decideCompletion(task);
       if (decision.action === "already_done") {
@@ -73,7 +81,7 @@ export async function completeTaskAction(
     revalidatePath(`/tasks/${taskId}`);
     revalidatePath("/do");
     revalidatePath("/see");
-    revalidatePath("/");
+    revalidatePath("/dashboard");
     return result;
   } catch (err) {
     console.error("completeTaskAction failed", err);
@@ -83,11 +91,25 @@ export async function completeTaskAction(
 
 export type UncompleteTaskResult =
   | { ok: true }
-  | { ok: false; error: "NOT_FOUND" | "SAVE_FAILED" };
+  | { ok: false; error: "UNAUTHORIZED" | "NOT_FOUND" | "SAVE_FAILED" };
 
 /** Reverts a DONE task to TODO. Does not touch completionCycle or past events. */
 export async function uncompleteTaskAction(taskId: number): Promise<UncompleteTaskResult> {
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return { ok: false, error: "UNAUTHORIZED" };
+  }
+
   try {
+    const [owned] = await db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .innerJoin(plans, eq(tasks.planId, plans.id))
+      .where(and(eq(tasks.id, taskId), eq(plans.userId, userId), isNull(tasks.deletedAt)));
+    if (!owned) {
+      return { ok: false, error: "NOT_FOUND" };
+    }
+
     const [updated] = await db
       .update(tasks)
       .set({ status: "TODO", completedAt: null, updatedAt: new Date() })
@@ -102,7 +124,7 @@ export async function uncompleteTaskAction(taskId: number): Promise<UncompleteTa
     revalidatePath(`/tasks/${taskId}`);
     revalidatePath("/do");
     revalidatePath("/see");
-    revalidatePath("/");
+    revalidatePath("/dashboard");
     return { ok: true };
   } catch (err) {
     console.error("uncompleteTaskAction failed", err);

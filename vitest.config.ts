@@ -10,5 +10,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    // The pure-function tests finish in milliseconds regardless; this ceiling only
+    // matters for tests/auth-ownership.test.ts, whose cases chain several real
+    // network + DB round trips (and one real-browser Playwright run).
+    testTimeout: 20_000,
   },
 });

@@ -1,11 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import type { ActionState } from "@/lib/action-state";
-import { minutesToHm } from "@/lib/date";
+import { daysBetweenInclusive, minutesToHm, minutesToLabel } from "@/lib/date";
 import { priorityLabels, priorityValues, type PlanInput } from "@/lib/validation";
 import { FormField, inputClassName } from "@/components/FormField";
-import { HourMinuteField } from "@/components/HourMinuteField";
 import { SubmitButton } from "@/components/SubmitButton";
 import { PLAN_IMPORT_STORAGE_KEY, parsePlanExportJson } from "@/lib/plan-export";
 
@@ -44,7 +43,27 @@ export function PlanForm({
   }, [mode]);
 
   const effectiveDefaults = imported ?? defaultValues;
-  const { hours: defaultHours, minutes: defaultMinutesPart } = minutesToHm(effectiveDefaults?.estimatedMinutes);
+
+  const [startDate, setStartDate] = useState(effectiveDefaults?.startDate ?? "");
+  const [endDate, setEndDate] = useState(effectiveDefaults?.endDate ?? "");
+  const days = useMemo(() => daysBetweenInclusive(startDate, endDate), [startDate, endDate]);
+
+  // "하루 총 투입 시간" is the only thing the user edits; the plan's actual
+  // estimatedMinutes (what's stored and what every aggregation/constellation
+  // calculation reads) is still a single total -- derived here as daily × days and
+  // sent through the same hidden estimatedHours/estimatedMinutesPart fields the
+  // server action already parses, so nothing downstream needs to change.
+  const defaultDaily = useMemo(() => {
+    if (effectiveDefaults?.estimatedMinutes === undefined) return { hours: undefined, minutes: undefined };
+    const defaultDays = daysBetweenInclusive(effectiveDefaults.startDate ?? "", effectiveDefaults.endDate ?? "") ?? 1;
+    return minutesToHm(Math.round(effectiveDefaults.estimatedMinutes / defaultDays));
+  }, [effectiveDefaults]);
+  const [dailyHours, setDailyHours] = useState<number | "">(defaultDaily.hours ?? "");
+  const [dailyMinutes, setDailyMinutes] = useState<number | "">(defaultDaily.minutes ?? "");
+
+  const dailyTotalMinutes = (Number(dailyHours) || 0) * 60 + (Number(dailyMinutes) || 0);
+  const totalMinutes = days !== null ? dailyTotalMinutes * days : null;
+  const { hours: totalHours, minutes: totalMinutesPart } = minutesToHm(totalMinutes ?? dailyTotalMinutes);
 
   return (
     <form
@@ -91,7 +110,8 @@ export function PlanForm({
             id="startDate"
             name="startDate"
             type="date"
-            defaultValue={effectiveDefaults?.startDate}
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
             required
             className={inputClassName}
           />
@@ -101,7 +121,8 @@ export function PlanForm({
             id="endDate"
             name="endDate"
             type="date"
-            defaultValue={effectiveDefaults?.endDate}
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
             required
             className={inputClassName}
           />
@@ -143,16 +164,58 @@ export function PlanForm({
         />
       </FormField>
 
-      <HourMinuteField
-        label="예상 총 투입 시간"
-        idPrefix="plan-estimated"
-        hoursName="estimatedHours"
-        minutesName="estimatedMinutesPart"
-        defaultHours={effectiveDefaults?.estimatedMinutes !== undefined ? defaultHours : undefined}
-        defaultMinutes={effectiveDefaults?.estimatedMinutes !== undefined ? defaultMinutesPart : undefined}
-        hint="이 계획을 완료하는 데 실제로 투입할 것으로 예상하는 시간"
+      <FormField
+        label="하루 총 투입 시간"
+        htmlFor="plan-daily-estimated-hours"
+        required
         error={errors.estimatedMinutes}
-      />
+        hint="하루에 이 계획에 쓸 것으로 예상하는 시간 -- 총 예상 투입 시간은 계획 기간에 맞춰 자동 계산됩니다"
+      >
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <input
+              id="plan-daily-estimated-hours"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              placeholder="0"
+              value={dailyHours}
+              onChange={(e) => setDailyHours(e.target.value === "" ? "" : Number(e.target.value))}
+              aria-label="하루 시간"
+              className={`${inputClassName} w-20 text-right tabular-nums`}
+            />
+            <span className="text-sm text-ink-500">시간</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <input
+              id="plan-daily-estimated-minutes"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={59}
+              step={1}
+              placeholder="0"
+              value={dailyMinutes}
+              onChange={(e) => setDailyMinutes(e.target.value === "" ? "" : Number(e.target.value))}
+              aria-label="하루 분"
+              className={`${inputClassName} w-20 text-right tabular-nums`}
+            />
+            <span className="text-sm text-ink-500">분</span>
+          </div>
+        </div>
+      </FormField>
+
+      <div className="flex items-center justify-between border border-line-strong bg-surface-muted px-4 py-3">
+        <span className="label-coord text-[10px] text-ink-400">
+          총 예상 투입 시간{days !== null ? ` (${days}일 × 하루 ${minutesToLabel(dailyTotalMinutes)})` : " (시작일·종료일을 입력하면 계산됩니다)"}
+        </span>
+        <span className="font-mono text-sm font-semibold text-ink-900">
+          {totalMinutes !== null ? minutesToLabel(totalMinutes) : "—"}
+        </span>
+      </div>
+      <input type="hidden" name="estimatedHours" value={totalHours} />
+      <input type="hidden" name="estimatedMinutesPart" value={totalMinutesPart} />
 
       {mode === "create" && (
         <FormField

@@ -2,52 +2,72 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 
 const TABS = [
+  { href: "/dashboard", label: "HOME" },
   { href: "/plans", label: "PLAN" },
   { href: "/do", label: "DO" },
   { href: "/see", label: "SEE" },
 ];
 
-export function SiteHeader() {
+export function SiteHeader({ userEmail }: { userEmail?: string | null }) {
   const pathname = usePathname();
-  // The home observatory hero breaks out to a wider canvas than every other page's
-  // max-w-6xl column -- match the header's edges to whichever is actually below it,
-  // rather than one fixed width that lines up with only one of the two.
-  const isHome = pathname === "/";
+  // Signed out: only HOME (the public demo gate) is a real destination, so PLAN/DO/SEE
+  // aren't shown as live menu items at all -- clicking a tab is not how a signed-out
+  // visitor learns those screens require login; the tabs simply aren't there.
+  const visibleTabs = userEmail ? TABS : TABS.filter((tab) => tab.href === "/dashboard");
 
   return (
     <header className="border-b border-line bg-paper">
-      <div
-        className={`mx-auto flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4 ${
-          isHome ? "max-w-[1920px] px-5 sm:px-8" : "max-w-6xl px-4 sm:px-6"
-        }`}
-      >
-        <Link href="/" className="flex items-baseline gap-3">
+      {/* Same max-width/gutter scale as <main> (layout.tsx) so the logo lines up with
+          where page content actually starts, instead of the header running wider. */}
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-5 py-3 sm:px-10 min-[1200px]:px-12">
+        <Link href="/dashboard" className="flex items-baseline gap-3">
           <span className="text-lg font-bold tracking-tight text-ink-900">DO:IT</span>
-          <span className="label-coord text-[10px] text-ink-400">PLAN · DO · SEE</span>
+          <span className="label-coord text-[10px] text-ink-400">PLAN YOUR ORBIT.</span>
         </Link>
 
-        <nav aria-label="주요 화면 이동" className="flex items-center gap-1 text-sm">
-          {TABS.map((tab) => {
+        <nav aria-label="주요 화면 이동" className="flex flex-wrap items-center gap-1 text-sm">
+          {visibleTabs.map((tab) => {
             const active = pathname.startsWith(tab.href);
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                className="label-coord relative px-3 py-2 text-[11px] text-ink-500 transition-colors hover:text-ink-900"
+                className="label-coord relative flex min-h-[32px] items-center px-3 text-[11px] text-ink-500 transition-colors hover:text-ink-900"
               >
                 <span className={active ? "text-ink-900" : undefined}>{tab.label}</span>
                 {active && (
                   <span
                     aria-hidden="true"
-                    className="absolute inset-x-2 -bottom-[1px] h-[2px] bg-ink-900"
+                    className="absolute inset-x-2 -bottom-[13px] h-[2px] bg-ink-900"
                   />
                 )}
               </Link>
             );
           })}
+          <span className="mx-1 hidden h-4 w-px bg-line sm:inline-block" aria-hidden="true" />
+          {userEmail ? (
+            <>
+              <Link
+                href="/mypage"
+                aria-current={pathname === "/mypage" ? "page" : undefined}
+                className="label-coord flex min-h-[32px] items-center px-3 text-[11px] text-ink-500 transition-colors hover:text-ink-900"
+              >
+                MY
+              </Link>
+              <LogoutButton />
+            </>
+          ) : (
+            <Link
+              href="/"
+              className="label-coord flex min-h-[32px] items-center px-3 text-[11px] text-ink-500 transition-colors hover:text-ink-900"
+            >
+              로그인
+            </Link>
+          )}
         </nav>
       </div>
     </header>

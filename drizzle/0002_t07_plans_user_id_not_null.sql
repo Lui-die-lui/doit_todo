@@ -1,0 +1,1 @@
+ALTER TABLE "doit_plans" ALTER COLUMN "user_id" SET NOT NULL;

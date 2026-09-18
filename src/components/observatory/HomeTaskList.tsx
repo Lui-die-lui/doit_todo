@@ -138,11 +138,25 @@ export function HomeTaskList({
         </ol>
       )}
 
-      <div className={compact ? "flex flex-wrap gap-3 text-xs" : "flex flex-wrap gap-4 text-sm"}>
-        <Link href={`/tasks/new?planId=${planId}`} className="font-medium text-ink-900 underline underline-offset-4">
+      <div className={compact ? "flex flex-wrap justify-end gap-2 text-xs" : "flex flex-wrap gap-4 text-sm"}>
+        <Link
+          href={`/tasks/new?planId=${planId}`}
+          className={
+            compact
+              ? "rounded-full bg-ink-900/10 px-3 py-1.5 font-medium text-ink-900 transition-colors hover:bg-ink-900/15"
+              : "font-medium text-ink-900 underline underline-offset-4"
+          }
+        >
           + 할 일 추가
         </Link>
-        <Link href="/tasks" className="text-ink-500 underline underline-offset-4 hover:text-ink-900">
+        <Link
+          href="/tasks"
+          className={
+            compact
+              ? "rounded-full bg-ink-900/10 px-3 py-1.5 text-ink-700 transition-colors hover:bg-ink-900/15 hover:text-ink-900"
+              : "text-ink-500 underline underline-offset-4 hover:text-ink-900"
+          }
+        >
           전체 할 일 화면 (URL 필터 유지) →
         </Link>
       </div>

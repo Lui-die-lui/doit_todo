@@ -2,15 +2,17 @@ import { notFound } from "next/navigation";
 import { getPlanById } from "@/lib/queries";
 import { revisePlanAction } from "@/lib/actions/plans";
 import { PlanForm } from "@/components/PlanForm";
+import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditPlanPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await requireSessionOrRedirect();
   const { id } = await params;
   const planId = Number(id);
   if (!Number.isInteger(planId) || planId <= 0) notFound();
 
-  const plan = await getPlanById(planId);
+  const plan = await getPlanById(session.user.id, planId);
   if (!plan || plan.deletedAt) notFound();
 
   const boundAction = revisePlanAction.bind(null, planId);

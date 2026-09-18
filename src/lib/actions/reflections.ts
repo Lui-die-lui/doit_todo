@@ -1,18 +1,24 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { plans, reflections } from "@/db/schema";
 import type { ActionState } from "@/lib/action-state";
-import { GENERIC_SAVE_ERROR } from "@/lib/db-errors";
+import { AUTH_REQUIRED_ERROR, GENERIC_SAVE_ERROR } from "@/lib/db-errors";
+import { getSessionUserId } from "@/lib/session";
 import { reflectionInputSchema, zodErrorToFieldErrors, type ReflectionInput } from "@/lib/validation";
 
 export async function createReflectionAction(
   prevState: ActionState<keyof ReflectionInput>,
   formData: FormData,
 ): Promise<ActionState<keyof ReflectionInput>> {
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return { status: "error", message: AUTH_REQUIRED_ERROR };
+  }
+
   const parsed = reflectionInputSchema.safeParse({
     planId: formData.get("planId"),
     periodStart: formData.get("periodStart"),
@@ -35,7 +41,10 @@ export async function createReflectionAction(
     };
   }
 
-  const [plan] = await db.select({ id: plans.id }).from(plans).where(eq(plans.id, parsed.data.planId));
+  const [plan] = await db
+    .select({ id: plans.id })
+    .from(plans)
+    .where(and(eq(plans.id, parsed.data.planId), eq(plans.userId, userId)));
   if (!plan) {
     return { status: "error", message: "존재하지 않는 계획입니다." };
   }

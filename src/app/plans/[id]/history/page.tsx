@@ -4,18 +4,20 @@ import { getPlanById, getPlanRevisions } from "@/lib/queries";
 import { PriorityBadge } from "@/components/Badges";
 import { formatDateOnly, formatDateTimeSeoul, minutesToLabel } from "@/lib/date";
 import { priorityLabels } from "@/lib/validation";
+import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlanHistoryPage({ params }: { params: Promise<{ id: string }> }) {
+  const session = await requireSessionOrRedirect();
   const { id } = await params;
   const planId = Number(id);
   if (!Number.isInteger(planId) || planId <= 0) notFound();
 
-  const plan = await getPlanById(planId);
+  const plan = await getPlanById(session.user.id, planId);
   if (!plan) notFound();
 
-  const revisions = await getPlanRevisions(planId); // newest version first
+  const revisions = await getPlanRevisions(session.user.id, planId); // newest version first
   const oldestRevision = revisions[revisions.length - 1];
   const original = oldestRevision
     ? {

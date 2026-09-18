@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createTaskAction } from "@/lib/actions/tasks";
 import { getActivePlans } from "@/lib/queries";
 import { TaskForm } from "@/components/TaskForm";
+import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +11,9 @@ export default async function NewTaskPage({
 }: {
   searchParams: Promise<{ planId?: string }>;
 }) {
+  const session = await requireSessionOrRedirect();
   const { planId } = await searchParams;
-  const plans = await getActivePlans();
+  const plans = await getActivePlans(session.user.id);
 
   if (plans.length === 0) {
     return (

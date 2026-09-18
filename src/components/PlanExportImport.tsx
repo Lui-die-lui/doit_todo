@@ -54,14 +54,15 @@ export function PlanExportImport({ plans }: { plans: Plan[] }) {
           type="button"
           onClick={() => setPickerOpen(true)}
           disabled={plans.length === 0}
-          className="inline-flex items-center border border-line-strong bg-surface px-4 py-2.5 text-sm font-medium text-ink-700 transition-colors hover:border-ink-900 hover:text-ink-900 disabled:cursor-not-allowed disabled:opacity-40"
+          title={plans.length === 0 ? "내보낼 계획이 없습니다." : undefined}
+          className="inline-flex min-h-[42px] items-center rounded-sm border border-line-strong bg-surface px-5 text-sm font-medium text-ink-700 transition-colors hover:border-ink-900 hover:text-ink-900 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          내보내기
+          계획별 내보내기
         </button>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="inline-flex items-center border border-line-strong bg-surface px-4 py-2.5 text-sm font-medium text-ink-700 transition-colors hover:border-ink-900 hover:text-ink-900"
+          className="inline-flex min-h-[42px] items-center rounded-sm border border-line-strong bg-surface px-5 text-sm font-medium text-ink-700 transition-colors hover:border-ink-900 hover:text-ink-900"
         >
           불러오기
         </button>

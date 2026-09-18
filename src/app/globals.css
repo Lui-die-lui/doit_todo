@@ -4,6 +4,12 @@
 
 html {
   color-scheme: light;
+  /* Reserve the scrollbar's width on every page, whether or not that page is
+     tall enough to need it. Without this, navigating between a page short enough
+     to fit the viewport (no scrollbar) and a taller one (scrollbar appears) shifts
+     all the centered content sideways by the scrollbar's width -- the "덜그럭"
+     jolt on PLAN/DO/SEE nav, since those three vary a lot in content height. */
+  scrollbar-gutter: stable;
 }
 
 /* scrollbar-width/-color aren't inherited, so declaring them on html alone leaves nested
@@ -172,6 +178,39 @@ a {
 }
 .obs-sheet {
   animation: obs-sheet-in 160ms ease-out both;
+}
+
+/* Signed-out /dashboard gate (DemoConstellationGate): a handful of demo stars
+   breathe very slowly and exactly one orbit ring creeps around, just enough to read
+   as "alive" without drawing focus from the login panel. Neutralized along with
+   everything else under prefers-reduced-motion below. */
+@keyframes gate-star-twinkle {
+  0%,
+  100% {
+    opacity: var(--gate-star-opacity, 0.6);
+  }
+  50% {
+    opacity: calc(var(--gate-star-opacity, 0.6) * 0.4);
+  }
+}
+.gate-star-twinkle {
+  animation: gate-star-twinkle 7s ease-in-out infinite;
+}
+.gate-star-twinkle--delay {
+  animation-delay: 2.3s;
+}
+@keyframes gate-orbit-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.gate-orbit-spin {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gate-orbit-spin 44s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

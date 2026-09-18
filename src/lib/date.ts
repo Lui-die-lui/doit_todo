@@ -42,6 +42,17 @@ export function formatDateOnly(input: string | null | undefined): string {
   return input.replaceAll("-", ".");
 }
 
+/** Inclusive day count between two YYYY-MM-DD dates (same day -> 1). Null on invalid/
+ * out-of-order input -- the plan form falls back to a 1-day estimate in that case. */
+export function daysBetweenInclusive(startDate: string, endDate: string): number | null {
+  const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+  if (!DATE_ONLY_RE.test(startDate) || !DATE_ONLY_RE.test(endDate)) return null;
+  const start = Date.parse(`${startDate}T00:00:00Z`);
+  const end = Date.parse(`${endDate}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null;
+  return Math.round((end - start) / 86_400_000) + 1;
+}
+
 /** Converts a `datetime-local` input value (assumed Seoul wall-clock) to a UTC Date. */
 export function seoulLocalInputToUtcDate(localValue: string): Date | null {
   if (!localValue) return null;

@@ -21,7 +21,7 @@ export default function GlobalError({
       <button
         type="button"
         onClick={() => reset()}
-        className="mt-2 inline-flex bg-ink-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
+        className="mt-2 inline-flex rounded-sm bg-ink-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
       >
         다시 시도
       </button>

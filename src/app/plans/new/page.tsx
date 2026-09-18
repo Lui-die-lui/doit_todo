@@ -1,5 +1,6 @@
 import { createPlanAction } from "@/lib/actions/plans";
 import { PlanForm } from "@/components/PlanForm";
+import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,7 @@ export default async function NewPlanPage({
 }: {
   searchParams: Promise<{ improvement?: string; reflectionId?: string }>;
 }) {
+  await requireSessionOrRedirect();
   const params = await searchParams;
 
   return (

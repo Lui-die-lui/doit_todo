@@ -5,6 +5,7 @@ import { PriorityBadge, TaskStatusBadge } from "@/components/Badges";
 import { priorityLabels, priorityValues } from "@/lib/validation";
 import { DEFAULT_SORT_DESCRIPTION, SORT_OPTIONS, getTaskComparator, type SortOption } from "@/lib/tasks-sort";
 import { inputClassName } from "@/components/FormField";
+import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function TasksPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; priority?: string; tag?: string; sort?: string }>;
 }) {
+  const session = await requireSessionOrRedirect();
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const status = (["ALL", "TODO", "DONE", "OVERDUE"].includes(sp.status ?? "") ? sp.status : "ALL") as StatusFilter;
@@ -22,7 +24,7 @@ export default async function TasksPage({
   const tag = (sp.tag ?? "ALL").trim() || "ALL";
   const sort = (SORT_OPTIONS.some((o) => o.value === sp.sort) ? sp.sort : "default") as SortOption;
 
-  const [rows, tags] = await Promise.all([getAllActiveTasksWithPlan(), getDistinctTags()]);
+  const [rows, tags] = await Promise.all([getAllActiveTasksWithPlan(session.user.id), getDistinctTags(session.user.id)]);
   const today = seoulTodayDateString();
 
   const filtered = rows.filter(({ task }) => {
@@ -48,7 +50,7 @@ export default async function TasksPage({
           <h1 className="label-coord text-xs text-ink-400">TASKS / INDEX</h1>
           <h2 className="text-xl font-bold text-ink-900">할 일</h2>
         </div>
-        <Link href="/tasks/new" className="inline-flex bg-ink-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-85">
+        <Link href="/tasks/new" className="inline-flex rounded-sm bg-ink-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-85">
           + 새 할 일
         </Link>
       </div>
@@ -109,7 +111,7 @@ export default async function TasksPage({
             ))}
           </select>
         </div>
-        <button type="submit" className="inline-flex h-fit bg-ink-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90">
+        <button type="submit" className="inline-flex h-fit rounded-sm bg-ink-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90">
           필터 적용
         </button>
       </form>

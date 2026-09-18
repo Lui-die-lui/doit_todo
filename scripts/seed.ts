@@ -3,6 +3,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import { plans, tasks } from "../src/db/schema";
+import { user } from "../src/db/auth-schema";
 
 const envConnectionString = process.env.SUPABASE_CONNECTION_KEY;
 if (!envConnectionString) {
@@ -12,13 +13,33 @@ if (!envConnectionString) {
 }
 const connectionString: string = envConnectionString;
 
+// doit_plans.user_id is NOT NULL (T07) -- this dev-only seed script needs a real,
+// already-signed-up account to own the sample plan/tasks it inserts.
+const envSeedUserEmail = process.env.SEED_USER_EMAIL;
+if (!envSeedUserEmail) {
+  throw new Error(
+    "SEED_USER_EMAIL is not set. Sign up a real account first (email/password or Google), then set SEED_USER_EMAIL=<that email> before seeding.",
+  );
+}
+const seedUserEmail: string = envSeedUserEmail;
+
 const PLAN_TITLE = "정보처리기사 실기 재도전 준비";
 
 async function main() {
   const client = postgres(connectionString, { max: 1 });
   const db = drizzle(client);
 
-  const existing = await db.select({ id: plans.id }).from(plans).where(eq(plans.title, PLAN_TITLE));
+  const [owner] = await db.select({ id: user.id }).from(user).where(eq(user.email, seedUserEmail));
+  if (!owner) {
+    console.error(`시드 실패: ${seedUserEmail} 계정을 찾을 수 없습니다. 먼저 그 이메일로 회원가입하세요.`);
+    await client.end();
+    process.exit(1);
+  }
+
+  const existing = await db
+    .select({ id: plans.id })
+    .from(plans)
+    .where(eq(plans.title, PLAN_TITLE));
   if (existing.length > 0) {
     console.log(`시드 건너뜀: "${PLAN_TITLE}" 계획이 이미 존재합니다 (id=${existing[0].id}).`);
     await client.end();
@@ -29,6 +50,7 @@ async function main() {
     const [plan] = await tx
       .insert(plans)
       .values({
+        userId: owner.id,
         title: PLAN_TITLE,
         description: "정보처리기사 실기 시험을 다시 준비하며 취약 영역을 집중적으로 보완한다.",
         startDate: "2026-09-17",

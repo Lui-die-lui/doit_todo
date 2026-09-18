@@ -26,7 +26,15 @@ const SWIPE_DISTANCE_PX = 60;
 
 /** Wraps the observatory hero (and the sections that describe "this plan") in a looping,
  * arrow + swipe navigable carousel across every active plan's constellation. */
-export function HomeCarousel({ slides, initialIndex }: { slides: HomeSlide[]; initialIndex: number }) {
+export function HomeCarousel({
+  slides,
+  initialIndex,
+  viewerName,
+}: {
+  slides: HomeSlide[];
+  initialIndex: number;
+  viewerName: string;
+}) {
   const [index, setIndex] = useState(() => (slides.length ? Math.min(Math.max(initialIndex, 0), slides.length - 1) : 0));
   const count = slides.length;
   const dragStart = useRef<{ x: number; y: number } | null>(null);
@@ -69,7 +77,7 @@ export function HomeCarousel({ slides, initialIndex }: { slides: HomeSlide[]; in
                 type="button"
                 onClick={() => go(index - 1)}
                 aria-label="이전 계획 별자리 보기"
-                className="label-coord border border-line-strong px-3 py-1.5 text-[11px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
+                className="label-coord rounded-sm border border-line-strong px-3 py-1.5 text-[11px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
               >
                 ‹ PREV
               </button>
@@ -80,7 +88,7 @@ export function HomeCarousel({ slides, initialIndex }: { slides: HomeSlide[]; in
                 type="button"
                 onClick={() => go(index + 1)}
                 aria-label="다음 계획 별자리 보기"
-                className="label-coord border border-line-strong px-3 py-1.5 text-[11px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
+                className="label-coord rounded-sm border border-line-strong px-3 py-1.5 text-[11px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
               >
                 NEXT ›
               </button>
@@ -103,6 +111,7 @@ export function HomeCarousel({ slides, initialIndex }: { slides: HomeSlide[]; in
           estimatedMinutesTotal={slide.estimatedMinutesTotal}
           actualMinutesTotal={slide.actualMinutesTotal}
           diffMinutes={slide.diffMinutes}
+          viewerName={viewerName}
           canNavigate={count > 1}
           onPrev={() => go(index - 1)}
           onNext={() => go(index + 1)}
@@ -188,7 +197,7 @@ export function HomeCarousel({ slides, initialIndex }: { slides: HomeSlide[]; in
           </dl>
           <Link
             href={`/see?planId=${slide.plan.id}`}
-            className="label-coord border border-line-strong px-4 py-2.5 text-center text-[11px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
+            className="label-coord rounded-sm border border-line-strong px-4 py-2.5 text-center text-[11px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
           >
             SEE / 돌아보기 열기 →
           </Link>
