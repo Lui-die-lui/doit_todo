@@ -1,9 +1,9 @@
 import Link from "next/link";
 import {
-  getActiveTasksForPlan,
+  getActiveTasksForPlanIds,
   getAllPlans,
-  getPlanRevisions,
-  getReflectionsForPlan,
+  getCarriedPlanIdsForPlans,
+  getPlanRevisionCounts,
   getWorkLogsForTaskIds,
 } from "@/lib/queries";
 import { buildConstellationTasks, computeConstellationLayout } from "@/lib/constellation";
@@ -13,6 +13,7 @@ import { PlanExportImport } from "@/components/PlanExportImport";
 import { PlanOrbitGraphic } from "@/components/plans/PlanOrbitGraphic";
 import { PageHeader } from "@/components/PageHeader";
 import { formatDateOnly, minutesToLabel, seoulTodayDateString } from "@/lib/date";
+import { groupPlanData } from "@/lib/batch-grouping";
 import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -22,28 +23,34 @@ export default async function PlansPage() {
   const userId = session.user.id;
   const plans = await getAllPlans(userId);
   const today = seoulTodayDateString();
+  const planIds = plans.map((plan) => plan.id);
 
-  const rows = await Promise.all(
-    plans.map(async (plan) => {
-      const tasks = await getActiveTasksForPlan(userId, plan.id);
-      const logs = await getWorkLogsForTaskIds(userId, tasks.map((t) => t.id));
-      const revisions = await getPlanRevisions(userId, plan.id);
-      const reflections = await getReflectionsForPlan(userId, plan.id);
-      const constellationTasks = buildConstellationTasks(tasks, logs);
-      const layout = computeConstellationLayout(constellationTasks, plan.startDate, plan.endDate, today);
-      const actualMinutesTotal = constellationTasks.reduce((sum, t) => sum + t.actualMinutesTotal, 0);
-      const carriedTo = reflections.find((r) => r.carriedPlanId)?.carriedPlanId ?? null;
-      return {
-        plan,
-        layout,
-        doneCount: layout.stars.filter((s) => s.status === "DONE").length,
-        totalCount: layout.stars.length,
-        actualMinutesTotal,
-        revisionCount: revisions.length,
-        carriedTo,
-      };
-    }),
-  );
+  const [allTasks, revisionCountByPlan, carriedPlanIdBySourcePlan] = await Promise.all([
+    getActiveTasksForPlanIds(userId, planIds),
+    getPlanRevisionCounts(userId, planIds),
+    getCarriedPlanIdsForPlans(userId, planIds),
+  ]);
+  const allWorkLogs = await getWorkLogsForTaskIds(userId, allTasks.map((task) => task.id));
+
+  const { tasksByPlan, workLogsByPlan } = groupPlanData(allTasks, allWorkLogs);
+
+  const rows = plans.map((plan) => {
+    const tasks = tasksByPlan.get(plan.id) ?? [];
+    const logs = workLogsByPlan.get(plan.id) ?? [];
+    const constellationTasks = buildConstellationTasks(tasks, logs);
+    const layout = computeConstellationLayout(constellationTasks, plan.startDate, plan.endDate, today);
+    const actualMinutesTotal = constellationTasks.reduce((sum, t) => sum + t.actualMinutesTotal, 0);
+    const carriedTo = carriedPlanIdBySourcePlan.get(plan.id) ?? null;
+    return {
+      plan,
+      layout,
+      doneCount: layout.stars.filter((s) => s.status === "DONE").length,
+      totalCount: layout.stars.length,
+      actualMinutesTotal,
+      revisionCount: revisionCountByPlan.get(plan.id) ?? 0,
+      carriedTo,
+    };
+  });
 
   const hasPlans = rows.length > 0;
 

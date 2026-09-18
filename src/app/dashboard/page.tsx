@@ -2,7 +2,14 @@ import Link from "next/link";
 import { computeRetroAggregation } from "@/lib/aggregations";
 import { buildConstellationTasks, computeConstellationLayout, getOrbitBoundaryDates } from "@/lib/constellation";
 import { isOverdue, seoulTodayDateString } from "@/lib/date";
-import { getActivePlans, getActiveTasksForPlan, getCarriedNextPlan, getWorkLogsForTaskIds, pickHomePlan } from "@/lib/queries";
+import { groupPlanData } from "@/lib/batch-grouping";
+import {
+  getActivePlans,
+  getActiveTasksForPlanIds,
+  getCarriedNextPlans,
+  getWorkLogsForTaskIds,
+  pickHomePlan,
+} from "@/lib/queries";
 import { getSession } from "@/lib/session";
 import {
   DemoConstellationBackdrop,
@@ -11,17 +18,17 @@ import {
 } from "@/components/observatory/DemoConstellationGate";
 import { HomeCarousel, type HomeSlide } from "@/components/observatory/HomeCarousel";
 import type { HomeTaskRow } from "@/components/observatory/HomeTaskList";
-import type { Plan } from "@/db/schema";
+import type { Plan, Task, WorkLog } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
-async function buildHomeSlide(userId: string, plan: Plan, today: string): Promise<HomeSlide> {
-  const [tasks, nextPlan] = await Promise.all([
-    getActiveTasksForPlan(userId, plan.id),
-    getCarriedNextPlan(userId, plan.id),
-  ]);
-  const workLogs = await getWorkLogsForTaskIds(userId, tasks.map((t) => t.id));
-
+function buildHomeSlide(
+  plan: Plan,
+  today: string,
+  tasks: Task[],
+  workLogs: WorkLog[],
+  nextPlan: { id: number; title: string } | null,
+): HomeSlide {
   const aggregation = computeRetroAggregation(tasks, workLogs, today);
   const constellationTasks = buildConstellationTasks(tasks, workLogs);
   const layout = computeConstellationLayout(constellationTasks, plan.startDate, plan.endDate, today);
@@ -125,7 +132,24 @@ export default async function DashboardPage() {
     return <EmptyConstellation />;
   }
 
-  const slides = await Promise.all(plans.map((plan) => buildHomeSlide(userId, plan, today)));
+  const planIds = plans.map((plan) => plan.id);
+  const [allTasks, nextPlanBySourcePlan] = await Promise.all([
+    getActiveTasksForPlanIds(userId, planIds),
+    getCarriedNextPlans(userId, planIds),
+  ]);
+  const allWorkLogs = await getWorkLogsForTaskIds(userId, allTasks.map((task) => task.id));
+
+  const { tasksByPlan, workLogsByPlan } = groupPlanData(allTasks, allWorkLogs);
+
+  const slides = plans.map((plan) =>
+    buildHomeSlide(
+      plan,
+      today,
+      tasksByPlan.get(plan.id) ?? [],
+      workLogsByPlan.get(plan.id) ?? [],
+      nextPlanBySourcePlan.get(plan.id) ?? null,
+    ),
+  );
   const initialIndex = Math.max(0, plans.findIndex((p) => p.id === homePlan.id));
 
   const viewerName = session.user.name || session.user.email.split("@")[0];

@@ -63,6 +63,23 @@ export async function getPlanRevisions(userId: string, planId: number) {
     .then((rows) => rows.map((r) => r.revision));
 }
 
+/** Revision counts for a plan list in one round trip. */
+export async function getPlanRevisionCounts(userId: string, planIds: number[]) {
+  if (planIds.length === 0) return new Map<number, number>();
+
+  const rows = await db
+    .select({
+      planId: planRevisions.planId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(planRevisions)
+    .innerJoin(plans, eq(planRevisions.planId, plans.id))
+    .where(and(inArray(planRevisions.planId, planIds), eq(plans.userId, userId)))
+    .groupBy(planRevisions.planId);
+
+  return new Map(rows.map((row) => [row.planId, row.count]));
+}
+
 export async function getActiveTasksForPlan(userId: string, planId: number) {
   const rows = await db
     .select({ task: tasks })
@@ -70,6 +87,20 @@ export async function getActiveTasksForPlan(userId: string, planId: number) {
     .innerJoin(plans, eq(tasks.planId, plans.id))
     .where(and(eq(tasks.planId, planId), eq(plans.userId, userId), isNull(tasks.deletedAt)))
     .then((rows) => rows.map((r) => r.task));
+  return [...rows].sort(compareTasksDefaultOrder);
+}
+
+/** Active tasks for many owned plans in one query, preserving the per-plan default order. */
+export async function getActiveTasksForPlanIds(userId: string, planIds: number[]) {
+  if (planIds.length === 0) return [];
+
+  const rows = await db
+    .select({ task: tasks })
+    .from(tasks)
+    .innerJoin(plans, eq(tasks.planId, plans.id))
+    .where(and(inArray(tasks.planId, planIds), eq(plans.userId, userId), isNull(tasks.deletedAt)))
+    .then((result) => result.map((row) => row.task));
+
   return [...rows].sort(compareTasksDefaultOrder);
 }
 
@@ -155,6 +186,56 @@ export async function getCarriedNextPlan(userId: string, planId: number): Promis
     .orderBy(desc(reflections.createdAt))
     .limit(1);
   return row ?? null;
+}
+
+/** Latest carried-to plan for each source plan, matching getCarriedNextPlan's ordering. */
+export async function getCarriedNextPlans(userId: string, planIds: number[]) {
+  if (planIds.length === 0) return new Map<number, { id: number; title: string }>();
+
+  const rows = await db
+    .select({ sourcePlanId: reflections.planId, id: plans.id, title: plans.title })
+    .from(reflections)
+    .innerJoin(plans, eq(reflections.carriedPlanId, plans.id))
+    .where(and(inArray(reflections.planId, planIds), eq(plans.userId, userId)))
+    .orderBy(desc(reflections.createdAt));
+
+  const result = new Map<number, { id: number; title: string }>();
+  for (const row of rows) {
+    if (!result.has(row.sourcePlanId)) result.set(row.sourcePlanId, { id: row.id, title: row.title });
+  }
+  return result;
+}
+
+/**
+ * First carried-plan id per source plan in periodEnd-desc order. This preserves
+ * the plan-list behavior without loading every reflection body into memory.
+ */
+export async function getCarriedPlanIdsForPlans(userId: string, planIds: number[]) {
+  if (planIds.length === 0) return new Map<number, number>();
+
+  const rows = await db
+    .select({
+      sourcePlanId: reflections.planId,
+      carriedPlanId: reflections.carriedPlanId,
+    })
+    .from(reflections)
+    .innerJoin(plans, eq(reflections.planId, plans.id))
+    .where(
+      and(
+        inArray(reflections.planId, planIds),
+        eq(plans.userId, userId),
+        sql`${reflections.carriedPlanId} is not null`,
+      ),
+    )
+    .orderBy(desc(reflections.periodEnd));
+
+  const result = new Map<number, number>();
+  for (const row of rows) {
+    if (row.carriedPlanId !== null && !result.has(row.sourcePlanId)) {
+      result.set(row.sourcePlanId, row.carriedPlanId);
+    }
+  }
+  return result;
 }
 
 export async function getAllReflections(userId: string) {

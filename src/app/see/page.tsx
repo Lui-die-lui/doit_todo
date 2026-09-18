@@ -4,10 +4,10 @@ import { formatDateOnly, formatDateTimeSeoul, minutesToLabel, seoulTodayDateStri
 import {
   getActivePlans,
   getCarriedNextPlan,
-  getHomePlan,
   getPlanById,
   getReflectionsForPlan,
   getWorkLogsForTaskIds,
+  pickHomePlan,
 } from "@/lib/queries";
 import { priorityLabels } from "@/lib/validation";
 import { describeScope, encodeScope, getTasksForScope, type SeeScope } from "@/lib/see-scope";
@@ -75,7 +75,7 @@ export default async function SeePage({
     if (Number.isInteger(planId) && planId > 0) scope = { type: "plan", planId };
   }
   if (!scope) {
-    const homePlan = await getHomePlan(userId, today);
+    const homePlan = pickHomePlan(plans, today);
     if (homePlan) scope = { type: "plan", planId: homePlan.id };
   }
 

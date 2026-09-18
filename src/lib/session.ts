@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -8,9 +9,9 @@ import { auth } from "./auth";
 
 /** Reads the current session from the verified server-side cookie -- never from any
  * client-supplied id/header/body field. Returns null when signed out. */
-export async function getSession() {
+export const getSession = cache(async function getSession() {
   return auth.api.getSession({ headers: await headers() });
-}
+});
 
 /** For server components/layouts backing a data screen: redirects signed-out
  * browsers to the public login screen (`/`) instead of rendering the page. */
