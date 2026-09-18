@@ -20,6 +20,20 @@ const INDEX_STATEMENTS = [
 
 const ADVISORY_LOCK_KEY = "doit-performance-indexes-v1";
 
+function migrationConnectionString(connectionString: string) {
+  const url = new URL(connectionString);
+  if (url.port === "6543") {
+    if (!url.hostname.includes("pooler")) {
+      throw new Error("Transaction-pooler port 6543 cannot be used for this operation.");
+    }
+    // Supabase shared-pooler hostnames expose transaction mode on 6543 and
+    // session mode on 5432. Session mode is required for SET and advisory locks.
+    url.port = "5432";
+    console.log("Using the Supabase session-pooler endpoint for this operation.");
+  }
+  return url.toString();
+}
+
 async function main() {
   const apply = process.argv.includes("--apply");
   if (!apply) {
@@ -33,11 +47,12 @@ async function main() {
   const connectionString = process.env.SUPABASE_CONNECTION_KEY;
   if (!connectionString) throw new Error("SUPABASE_CONNECTION_KEY is not set.");
 
-  const client = postgres(connectionString, {
+  const client = postgres(migrationConnectionString(connectionString), {
     max: 1,
     prepare: false,
     connect_timeout: 10,
     idle_timeout: 20,
+    ssl: "require",
   });
 
   let lockAcquired = false;
@@ -49,6 +64,48 @@ async function main() {
     if (!lockAcquired) throw new Error("Another performance-index operation is already running.");
 
     await client.unsafe("SET lock_timeout = '2s'");
+
+    const [databaseState] = await client<{
+      readOnly: boolean;
+      canCreate: boolean;
+      longTransactions: number;
+      concurrentBuilds: number;
+    }[]>`
+      select
+        pg_is_in_recovery() as "readOnly",
+        has_database_privilege(current_user, current_database(), 'CREATE') as "canCreate",
+        (
+          select count(*)::int
+          from pg_stat_activity
+          where xact_start is not null
+            and pid <> pg_backend_pid()
+            and now() - xact_start > interval '5 minutes'
+        ) as "longTransactions",
+        (select count(*)::int from pg_stat_progress_create_index) as "concurrentBuilds"
+    `;
+
+    if (databaseState?.readOnly) throw new Error("The target database is read-only.");
+    if (!databaseState?.canCreate) throw new Error("The connected role does not have CREATE privilege.");
+    if (databaseState.longTransactions > 0) {
+      throw new Error(`Preflight found ${databaseState.longTransactions} transaction(s) older than five minutes.`);
+    }
+    if (databaseState.concurrentBuilds > 0) {
+      throw new Error("Another concurrent index build is already running.");
+    }
+
+    const invalidBefore = await client<{ index_name: string }[]>`
+      select index_class.relname as index_name
+      from pg_index index_state
+      join pg_class index_class on index_class.oid = index_state.indexrelid
+      join pg_class table_class on table_class.oid = index_state.indrelid
+      where table_class.relname like 'doit_%'
+        and not index_state.indisvalid
+    `;
+    if (invalidBefore.length > 0) {
+      throw new Error(`Preflight found invalid indexes: ${invalidBefore.map((row) => row.index_name).join(", ")}`);
+    }
+
+    console.log("Preflight passed: writable database, DDL privilege, no long transaction, and no conflicting build.");
 
     for (const statement of INDEX_STATEMENTS) {
       const indexName = statement.match(/EXISTS\s+([a-z0-9_]+)/i)?.[1] ?? "unknown";

@@ -89,11 +89,14 @@ npm run db:indexes:performance
 npm run db:indexes:performance -- --apply
 ```
 
+연결 문자열이 Supabase transaction pooler(`:6543`)를 가리키면 도구는 파일을 수정하지 않고 해당 실행 프로세스에서만 같은 pooler의 session 모드(`:5432`)로 전환한다. `SET lock_timeout`과 advisory lock이 쿼리 사이에 유지되어야 하기 때문이다. Direct 또는 session 연결은 그대로 사용하며, TLS를 필수로 설정한다.
+
 스크립트는 다음 안전장치를 사용한다.
 
 - 전용 advisory lock으로 중복 실행 방지
 - 연결 하나만 사용
 - `lock_timeout = 2s`
+- 읽기 전용 DB, DDL 권한 부족, 5분 초과 트랜잭션, 다른 인덱스 빌드 사전 차단
 - 인덱스를 순차 생성
 - 이미 존재하는 인덱스는 건너뜀
 - 완료 후 invalid index 존재 여부 검사
