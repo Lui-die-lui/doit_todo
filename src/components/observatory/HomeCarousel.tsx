@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, useState } from "react";
 import type { ConstellationLayout } from "@/lib/constellation";
-import { formatDateTimeSeoul, minutesToLabel } from "@/lib/date";
 import { Observatory, type HomeRecentLog, type ObservatoryPlan, type ObservatoryStats } from "./Observatory";
 import { HomeTaskList, type HomeTaskRow } from "./HomeTaskList";
+import { RecentLogsPanel } from "./RecentLogsPanel";
+import { EstimateVsActualPanel } from "./EstimateVsActualPanel";
 
 export type { HomeRecentLog };
 
@@ -133,75 +133,13 @@ export function HomeCarousel({
       {/* Desktop already carries DO + SEE previews inside the observatory hero's top-right
           corner; this full-width version stays for mobile/tablet. */}
       <section aria-labelledby="home-do-heading" className="grid grid-cols-1 gap-8 lg:hidden">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-baseline justify-between border-b border-ink-900 pb-2">
-            <h2 id="home-do-heading" className="label-coord text-[11px] text-ink-900">
-              DO / 최근 실행 기록
-            </h2>
-            <Link href="/do" className="label-coord text-[10px] text-ink-500 hover:text-ink-900">
-              전체 기록 →
-            </Link>
-          </div>
-          {slide.recentLogs.length === 0 ? (
-            <p className="border border-dashed border-line-strong bg-surface p-6 text-sm text-ink-400">
-              아직 실행 기록이 없습니다. 첫 기록을 남기면 별 주변에 작은 궤적이 생깁니다.
-            </p>
-          ) : (
-            <ul className="flex flex-col border-l border-line-strong pl-4">
-              {slide.recentLogs.map((log) => (
-                <li key={log.id} className="relative border-b border-line py-3 text-sm last:border-b-0">
-                  <span aria-hidden="true" className="absolute -left-[20.5px] top-[1.1rem] h-2 w-2 rounded-full border border-ink-900 bg-surface" />
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <span className="font-mono text-xs text-ink-900">
-                      {formatDateTimeSeoul(log.startAt)} – {formatDateTimeSeoul(log.endAt).slice(11)}
-                    </span>
-                    <span className="font-mono font-semibold text-ink-900">{minutesToLabel(log.actualMinutes)}</span>
-                  </div>
-                  <p className="mt-0.5 text-ink-700">
-                    <Link href={`/tasks/${log.taskId}`} className="underline underline-offset-2">
-                      {log.taskTitle}
-                    </Link>
-                  </p>
-                  {log.blockerReason && (
-                    <p className="mt-1 border-l-2 border-dashed border-ink-500 pl-2 text-sm text-ink-700">
-                      <span className="label-coord mr-1 text-[9px] text-ink-400">BLOCKED</span>
-                      {log.blockerReason}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <aside className="flex flex-col gap-4">
-          <div className="border-b border-ink-900 pb-2">
-            <h2 className="label-coord text-[11px] text-ink-900">SEE / 예상 대 실제</h2>
-          </div>
-          <dl className="flex flex-col gap-2 font-mono text-sm">
-            <div className="flex justify-between">
-              <dt className="label-coord text-[10px] text-ink-400">EST.</dt>
-              <dd className="text-ink-900">{minutesToLabel(slide.estimatedMinutesTotal)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="label-coord text-[10px] text-ink-400">ACTUAL</dt>
-              <dd className="text-ink-900">{minutesToLabel(slide.actualMinutesTotal)}</dd>
-            </div>
-            <div className="flex justify-between border-t border-line pt-2">
-              <dt className="label-coord text-[10px] text-ink-400">DIFF</dt>
-              <dd className="font-semibold text-ink-900">
-                {slide.diffMinutes > 0 ? "+" : ""}
-                {minutesToLabel(slide.diffMinutes)}
-              </dd>
-            </div>
-          </dl>
-          <Link
-            href={`/see?planId=${slide.plan.id}`}
-            className="label-coord rounded-sm border border-line-strong px-4 py-2.5 text-center text-[11px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
-          >
-            SEE / 돌아보기 열기 →
-          </Link>
-        </aside>
+        <RecentLogsPanel logs={slide.recentLogs} headingId="home-do-heading" />
+        <EstimateVsActualPanel
+          planId={slide.plan.id}
+          estimatedMinutes={slide.estimatedMinutesTotal}
+          actualMinutes={slide.actualMinutesTotal}
+          diffMinutes={slide.diffMinutes}
+        />
       </section>
     </div>
   );

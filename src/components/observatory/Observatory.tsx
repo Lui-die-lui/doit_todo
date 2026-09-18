@@ -10,12 +10,20 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import type { ConstellationLayout, ConstellationStar } from "@/lib/constellation";
-import { formatDateOnly, formatDateTimeSeoul, minutesToLabel, minutesToMonoLabel } from "@/lib/date";
+import type {
+  ConstellationLayout,
+  ConstellationStar,
+} from "@/lib/constellation";
+import { formatDateOnly, minutesToLabel, minutesToMonoLabel } from "@/lib/date";
 import { priorityLabels } from "@/lib/validation";
-import { InteractiveStar, StarInspectorBody } from "@/components/constellation/InteractiveStar";
+import {
+  InteractiveStar,
+  StarInspectorBody,
+} from "@/components/constellation/InteractiveStar";
 import { round3 } from "@/components/constellation/starGeometry";
 import { HomeTaskList, type HomeTaskRow } from "./HomeTaskList";
+import { RecentLogsPanel, type HomeRecentLog } from "./RecentLogsPanel";
+import { EstimateVsActualPanel } from "./EstimateVsActualPanel";
 
 const VIEW = 116;
 const BEZEL_RADIUS = 100;
@@ -43,17 +51,15 @@ export type ObservatoryStats = {
   actualMinutes: number;
 };
 
-export type HomeRecentLog = {
-  id: number;
-  taskId: number;
-  taskTitle: string;
-  startAt: string;
-  endAt: string;
-  actualMinutes: number;
-  blockerReason: string | null;
-};
+export type { HomeRecentLog };
 
-type PanelPosition = { left: number; top: number; side: "left" | "right"; starX: number; starY: number };
+type PanelPosition = {
+  left: number;
+  top: number;
+  side: "left" | "right";
+  starX: number;
+  starY: number;
+};
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
@@ -120,10 +126,13 @@ export function Observatory({
   const taskPanelRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const doSeeRef = useRef<HTMLDivElement>(null);
-  const statsRef = useRef<HTMLDListElement>(null);
+  const readoutRef = useRef<HTMLDivElement>(null);
 
   const activeId = pinnedId ?? hoverId;
-  const activeStar = activeId !== null ? layout.stars.find((s) => s.id === activeId) ?? null : null;
+  const activeStar =
+    activeId !== null
+      ? (layout.stars.find((s) => s.id === activeId) ?? null)
+      : null;
   const indexById = new Map(layout.stars.map((s, i) => [s.id, i + 1]));
 
   /* --- environment: coarse pointer (mobile) detection, post-mount only --- */
@@ -143,11 +152,17 @@ export function Observatory({
     const recompute = () => {
       if (window.innerWidth < 1024) return;
       if (taskPanelRef.current && actionsRef.current) {
-        const room = actionsRef.current.getBoundingClientRect().top - taskPanelRef.current.getBoundingClientRect().top - GAP;
+        const room =
+          actionsRef.current.getBoundingClientRect().top -
+          taskPanelRef.current.getBoundingClientRect().top -
+          GAP;
         setTaskPanelMaxH(Math.max(80, room));
       }
-      if (doSeeRef.current && statsRef.current) {
-        const room = statsRef.current.getBoundingClientRect().top - doSeeRef.current.getBoundingClientRect().top - GAP;
+      if (doSeeRef.current && readoutRef.current) {
+        const room =
+          readoutRef.current.getBoundingClientRect().top -
+          doSeeRef.current.getBoundingClientRect().top -
+          GAP;
         setDoSeeMaxH(Math.max(80, room));
       }
     };
@@ -164,50 +179,56 @@ export function Observatory({
     hideTimer.current = null;
   }, []);
 
-  const scheduleShow = useCallback(
-    (id: number) => {
-      if (hideTimer.current) window.clearTimeout(hideTimer.current);
-      hideTimer.current = null;
-      showTimer.current = window.setTimeout(() => setHoverId(id), SHOW_DELAY_MS);
-    },
-    [],
-  );
+  const scheduleShow = useCallback((id: number) => {
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = null;
+    showTimer.current = window.setTimeout(() => setHoverId(id), SHOW_DELAY_MS);
+  }, []);
 
   const scheduleHide = useCallback(() => {
     if (showTimer.current) window.clearTimeout(showTimer.current);
     showTimer.current = null;
-    hideTimer.current = window.setTimeout(() => setHoverId(null), HIDE_DELAY_MS);
+    hideTimer.current = window.setTimeout(
+      () => setHoverId(null),
+      HIDE_DELAY_MS,
+    );
   }, []);
 
   useEffect(() => clearTimers, [clearTimers]);
 
   /* --- panel placement: viewBox -> stage pixels, flip near the right edge --- */
-  const computePanelPos = useCallback((star: ConstellationStar): PanelPosition | null => {
-    const svg = svgRef.current;
-    const stage = stageRef.current;
-    if (!svg || !stage) return null;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return null;
-    const pt = svg.createSVGPoint();
-    pt.x = star.x;
-    pt.y = star.y;
-    const screen = pt.matrixTransform(ctm);
-    const stageRect = stage.getBoundingClientRect();
-    const x = screen.x - stageRect.left;
-    const y = screen.y - stageRect.top;
-    const scale = ctm.a;
-    const offset = (star.radius + 8) * scale + PANEL_GAP;
+  const computePanelPos = useCallback(
+    (star: ConstellationStar): PanelPosition | null => {
+      const svg = svgRef.current;
+      const stage = stageRef.current;
+      if (!svg || !stage) return null;
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return null;
+      const pt = svg.createSVGPoint();
+      pt.x = star.x;
+      pt.y = star.y;
+      const screen = pt.matrixTransform(ctm);
+      const stageRect = stage.getBoundingClientRect();
+      const x = screen.x - stageRect.left;
+      const y = screen.y - stageRect.top;
+      const scale = ctm.a;
+      const offset = (star.radius + 8) * scale + PANEL_GAP;
 
-    let side: "left" | "right" = "right";
-    let left = x + offset;
-    if (left + PANEL_WIDTH > stageRect.width - 8) {
-      side = "left";
-      left = x - offset - PANEL_WIDTH;
-    }
-    if (left < 8) left = 8;
-    const top = Math.max(8, Math.min(y - 36, stageRect.height - PANEL_EST_HEIGHT - 8));
-    return { left, top, side, starX: x, starY: y };
-  }, []);
+      let side: "left" | "right" = "right";
+      let left = x + offset;
+      if (left + PANEL_WIDTH > stageRect.width - 8) {
+        side = "left";
+        left = x - offset - PANEL_WIDTH;
+      }
+      if (left < 8) left = 8;
+      const top = Math.max(
+        8,
+        Math.min(y - 36, stageRect.height - PANEL_EST_HEIGHT - 8),
+      );
+      return { left, top, side, starX: x, starY: y };
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!activeStar || isCoarse) {
@@ -237,7 +258,10 @@ export function Observatory({
       setHoverId(id);
       setPinnedId(id);
       // move keyboard focus into the panel so its link is the next Tab stop
-      window.setTimeout(() => panelRef.current?.querySelector<HTMLElement>("a,button")?.focus(), 0);
+      window.setTimeout(
+        () => panelRef.current?.querySelector<HTMLElement>("a,button")?.focus(),
+        0,
+      );
     },
     [clearTimers],
   );
@@ -277,13 +301,16 @@ export function Observatory({
         const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
         // ~1-3 screen px of drift: viewBox units here scale to roughly 2-3 px each
-        if (parallaxRef.current) parallaxRef.current.style.transform = `translate(${nx * 0.6}px, ${ny * 0.6}px)`;
-        if (parallaxOuterRef.current) parallaxOuterRef.current.style.transform = `translate(${nx * 1.1}px, ${ny * 1.1}px)`;
+        if (parallaxRef.current)
+          parallaxRef.current.style.transform = `translate(${nx * 0.6}px, ${ny * 0.6}px)`;
+        if (parallaxOuterRef.current)
+          parallaxOuterRef.current.style.transform = `translate(${nx * 1.1}px, ${ny * 1.1}px)`;
       });
     };
     const onLeave = () => {
       if (parallaxRef.current) parallaxRef.current.style.transform = "";
-      if (parallaxOuterRef.current) parallaxOuterRef.current.style.transform = "";
+      if (parallaxOuterRef.current)
+        parallaxOuterRef.current.style.transform = "";
     };
     section.addEventListener("pointermove", onMove);
     section.addEventListener("pointerleave", onLeave);
@@ -318,7 +345,9 @@ export function Observatory({
       <div className="relative mx-auto flex min-h-[calc(100svh-8.5rem)] max-w-[1920px] flex-col px-5 pb-5 pt-6 sm:px-8 lg:block lg:pb-0 lg:pt-0">
         {/* ---------- top-left: plan ---------- */}
         <div className="order-1 max-w-md lg:absolute lg:left-8 lg:top-0 lg:z-10 lg:w-[22rem] lg:max-w-[22rem] lg:pointer-events-none">
-          <p className="label-coord text-[10px] text-ink-400">CURRENT CONSTELLATION / {pad2(plan.id)}</p>
+          <p className="label-coord text-[10px] text-ink-400">
+            CURRENT CONSTELLATION / {pad2(plan.id)}
+          </p>
           <h1
             id="observatory-title"
             className="mt-1 break-words text-2xl font-bold leading-tight tracking-tight text-ink-900 sm:text-3xl lg:text-xl"
@@ -326,17 +355,24 @@ export function Observatory({
             {plan.title}
           </h1>
           <p className="mt-2 font-mono text-xs text-ink-500 lg:mt-1 lg:text-[11px]">
-            {formatDateOnly(plan.startDate)} — {formatDateOnly(plan.endDate)} · {priorityLabels[plan.priority]}
+            {formatDateOnly(plan.startDate)} — {formatDateOnly(plan.endDate)} ·{" "}
+            {priorityLabels[plan.priority]}
           </p>
           <p className="mt-3 line-clamp-3 max-w-xs text-sm leading-relaxed text-ink-700 lg:mt-1.5 lg:text-xs">
             {plan.successCriteria}
           </p>
-          <div className="mt-3 h-px w-12 bg-ink-900 lg:mt-2" aria-hidden="true" />
+          <div
+            className="mt-3 h-px w-12 bg-ink-900 lg:mt-2"
+            aria-hidden="true"
+          />
           <p className="mt-2 font-mono text-xs text-ink-500 lg:mt-1.5 lg:text-[11px]">
-            EST. {minutesToMonoLabel(plan.estimatedMinutes)} · 예상 {minutesToLabel(plan.estimatedMinutes)}
+            EST. {minutesToMonoLabel(plan.estimatedMinutes)} · 예상{" "}
+            {minutesToLabel(plan.estimatedMinutes)}
           </p>
           <p className="mt-1 label-coord text-[11px] text-ink-900">
-            {isComplete ? "CONSTELLATION COMPLETE" : `${pad2(stats.done)} / ${pad2(stats.planned)} STARS LIT`}
+            {isComplete
+              ? "CONSTELLATION COMPLETE"
+              : `${pad2(stats.done)} / ${pad2(stats.planned)} STARS LIT`}
           </p>
 
           {/* Task list, embedded as a glass panel below the fold-free hero (desktop only --
@@ -350,8 +386,13 @@ export function Observatory({
             style={{ maxHeight: taskPanelMaxH ?? 240 }}
           >
             <div className="flex shrink-0 items-baseline justify-between border-b border-ink-900/10 px-4 pb-2 pt-3">
-              <h2 className="label-coord text-xs text-ink-900">TASKS / 할 일 ({taskRows.length})</h2>
-              <Link href="/tasks" className="label-coord text-[11px] text-ink-400 hover:text-ink-900">
+              <h2 className="label-coord text-xs text-ink-900">
+                TASKS / 할 일 ({taskRows.length})
+              </h2>
+              <Link
+                href="/tasks"
+                className="label-coord text-[11px] text-ink-400 hover:text-ink-900"
+              >
                 전체 →
               </Link>
             </div>
@@ -369,75 +410,16 @@ export function Observatory({
             {viewerName}님의 계획 별자리예요.
           </p>
 
-          {/* DO + SEE preview, plain (no glass panel) -- fills the empty vertical space between
-              the observer text and the bottom-right stat readout, desktop only. Mirrors the
-              full-width DO/SEE section below, which stays for mobile/tablet. Clamped + scrollable
-              to the measured gap above the stats readout, same as the task panel on the left. */}
+          {/* DO preview, plain (no glass panel), desktop only. Mirrors the full-width DO section
+              in HomeCarousel, which stays for mobile/tablet. Clamped + scrollable to the measured
+              gap above the bottom-right stack (SEE + stat readout), same as the task panel on the
+              left. */}
           <div
             ref={doSeeRef}
             className="pointer-events-auto mt-8 hidden overflow-y-auto text-left lg:mt-5 lg:block"
             style={{ maxHeight: doSeeMaxH ?? 420 }}
           >
-            <div className="flex items-baseline justify-between border-b border-ink-900 pb-2">
-              <h2 className="label-coord text-[11px] text-ink-900">DO / 최근 실행 기록</h2>
-              <Link href="/do" className="label-coord text-[10px] text-ink-500 hover:text-ink-900">
-                전체 기록 →
-              </Link>
-            </div>
-            {recentLogs.length === 0 ? (
-              <p className="mt-3 text-xs text-ink-400 lg:text-[11px]">아직 실행 기록이 없습니다.</p>
-            ) : (
-              <ul className="flex flex-col border-l border-line-strong pl-4">
-                {recentLogs.slice(0, 3).map((log) => (
-                  <li key={log.id} className="relative border-b border-line py-2.5 text-sm last:border-b-0 lg:py-2 lg:text-xs">
-                    <span
-                      aria-hidden="true"
-                      className="absolute -left-[18.5px] top-[0.95rem] h-1.5 w-1.5 rounded-full border border-ink-900 bg-surface"
-                    />
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                      <span className="font-mono text-[11px] text-ink-900 lg:text-[10px]">
-                        {formatDateTimeSeoul(log.startAt)} – {formatDateTimeSeoul(log.endAt).slice(11)}
-                      </span>
-                      <span className="font-mono text-xs font-semibold text-ink-900 lg:text-[11px]">
-                        {minutesToLabel(log.actualMinutes)}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 truncate text-xs text-ink-700 lg:text-[11px]">
-                      <Link href={`/tasks/${log.taskId}`} className="underline underline-offset-2">
-                        {log.taskTitle}
-                      </Link>
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="mt-6 border-b border-ink-900 pb-2 lg:mt-4">
-              <h2 className="label-coord text-[11px] text-ink-900">SEE / 예상 대 실제</h2>
-            </div>
-            <dl className="mt-2 flex flex-col gap-1.5 font-mono text-xs lg:text-[11px]">
-              <div className="flex justify-between gap-4">
-                <dt className="label-coord text-[10px] text-ink-400">EST.</dt>
-                <dd className="text-ink-900">{minutesToLabel(estimatedMinutesTotal)}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="label-coord text-[10px] text-ink-400">ACTUAL</dt>
-                <dd className="text-ink-900">{minutesToLabel(actualMinutesTotal)}</dd>
-              </div>
-              <div className="flex justify-between gap-4 border-t border-line pt-1.5">
-                <dt className="label-coord text-[10px] text-ink-400">DIFF</dt>
-                <dd className="font-semibold text-ink-900">
-                  {diffMinutes > 0 ? "+" : ""}
-                  {minutesToLabel(diffMinutes)}
-                </dd>
-              </div>
-            </dl>
-            <Link
-              href={`/see?planId=${plan.id}`}
-              className="label-coord mt-3 block rounded-sm border border-line-strong px-4 py-2 text-center text-[10px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
-            >
-              SEE / 돌아보기 열기 →
-            </Link>
+            <RecentLogsPanel logs={recentLogs} compact />
           </div>
         </div>
 
@@ -476,9 +458,24 @@ export function Observatory({
             {/* decorative layers drift with the pointer; star coordinates never move */}
             <g ref={parallaxOuterRef} className="obs-parallax">
               {bezelTicks.map((t) => (
-                <line key={t.key} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke="#D2D2CB" strokeWidth={0.4} />
+                <line
+                  key={t.key}
+                  x1={t.x1}
+                  y1={t.y1}
+                  x2={t.x2}
+                  y2={t.y2}
+                  stroke="#D2D2CB"
+                  strokeWidth={0.4}
+                />
               ))}
-              <circle cx={0} cy={0} r={BEZEL_RADIUS} fill="none" stroke="#E8E8E2" strokeWidth={0.5} />
+              <circle
+                cx={0}
+                cy={0}
+                r={BEZEL_RADIUS}
+                fill="none"
+                stroke="#E8E8E2"
+                strokeWidth={0.5}
+              />
               {(
                 [
                   { deg: 0, x: BEZEL_RADIUS + 3, y: 1.6, anchor: "start" },
@@ -487,7 +484,15 @@ export function Observatory({
                   { deg: 270, x: 0, y: -BEZEL_RADIUS - 4, anchor: "middle" },
                 ] as const
               ).map((m) => (
-                <text key={m.deg} x={m.x} y={m.y} textAnchor={m.anchor} fontSize={4} fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#999992">
+                <text
+                  key={m.deg}
+                  x={m.x}
+                  y={m.y}
+                  textAnchor={m.anchor}
+                  fontSize={4}
+                  fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+                  fill="#999992"
+                >
                   {m.deg}°
                 </text>
               ))}
@@ -509,10 +514,26 @@ export function Observatory({
                 );
               })}
               {layout.orbitRadii.map((r, i) => (
-                <circle key={r} cx={0} cy={0} r={r} fill="none" stroke="#E8E8E2" strokeWidth={0.5} strokeDasharray={i === 2 ? "1 5" : "1 3.5"} />
+                <circle
+                  key={r}
+                  cx={0}
+                  cy={0}
+                  r={r}
+                  fill="none"
+                  stroke="#E8E8E2"
+                  strokeWidth={0.5}
+                  strokeDasharray={i === 2 ? "1 5" : "1 3.5"}
+                />
               ))}
               {orbitDateLabels.map((iso, i) => (
-                <text key={i} x={2} y={-layout.orbitRadii[i] - 2} fontSize={4.5} fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#999992">
+                <text
+                  key={i}
+                  x={2}
+                  y={-layout.orbitRadii[i] - 2}
+                  fontSize={4.5}
+                  fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+                  fill="#999992"
+                >
                   {shortDate(iso)}
                 </text>
               ))}
@@ -529,17 +550,40 @@ export function Observatory({
                 const y1 = round3(Math.sin(rad) * r1);
                 return (
                   <g>
-                    <line x1={x0} y1={y0} x2={x1} y2={y1} stroke="#11110F" strokeWidth={0.6} strokeDasharray="1.5 2" />
-                    <polygon points={`${x1},${y1} ${x1 - 3.6},${y1 - 0.8} ${x1 - 0.8},${y1 - 3.6}`} fill="#11110F" />
-                    <text x={x0 + 4} y={y0 - 1} fontSize={3.8} fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#666660" transform={`rotate(45 ${x0 + 4} ${y0 - 1})`}>
-                      NEXT → {nextPlan.title.length > 14 ? `${nextPlan.title.slice(0, 14)}…` : nextPlan.title}
+                    <line
+                      x1={x0}
+                      y1={y0}
+                      x2={x1}
+                      y2={y1}
+                      stroke="#11110F"
+                      strokeWidth={0.6}
+                      strokeDasharray="1.5 2"
+                    />
+                    <polygon
+                      points={`${x1},${y1} ${x1 - 3.6},${y1 - 0.8} ${x1 - 0.8},${y1 - 3.6}`}
+                      fill="#11110F"
+                    />
+                    <text
+                      x={x0 + 4}
+                      y={y0 - 1}
+                      fontSize={3.8}
+                      fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+                      fill="#666660"
+                      transform={`rotate(45 ${x0 + 4} ${y0 - 1})`}
+                    >
+                      NEXT →{" "}
+                      {nextPlan.title.length > 14
+                        ? `${nextPlan.title.slice(0, 14)}…`
+                        : nextPlan.title}
                     </text>
                   </g>
                 );
               })()}
 
             {layout.connections.map((c, i) => {
-              const length = round3(Math.hypot(c.to.x - c.from.x, c.to.y - c.from.y));
+              const length = round3(
+                Math.hypot(c.to.x - c.from.x, c.to.y - c.from.y),
+              );
               return (
                 <line
                   key={i}
@@ -551,12 +595,24 @@ export function Observatory({
                   strokeOpacity={0.55}
                   strokeWidth={0.4}
                   className="doit-line-draw"
-                  style={{ strokeDasharray: length, ["--doit-line-length" as string]: length } as CSSProperties}
+                  style={
+                    {
+                      strokeDasharray: length,
+                      ["--doit-line-length" as string]: length,
+                    } as CSSProperties
+                  }
                 />
               );
             })}
 
-            <circle cx={0} cy={0} r={isComplete ? 3.6 : 2} fill={isComplete ? "#11110F" : "none"} stroke="#11110F" strokeWidth={1} />
+            <circle
+              cx={0}
+              cy={0}
+              r={isComplete ? 3.6 : 2}
+              fill={isComplete ? "#11110F" : "none"}
+              stroke="#11110F"
+              strokeWidth={1}
+            />
 
             {layout.stars.map((star) => (
               <InteractiveStar
@@ -600,7 +656,11 @@ export function Observatory({
               role={pinnedId !== null ? "dialog" : "tooltip"}
               aria-label={`${activeStar.title} 상세`}
               className="obs-inspector absolute z-20 rounded-2xl p-4"
-              style={{ left: panelPos.left, top: panelPos.top, width: PANEL_WIDTH }}
+              style={{
+                left: panelPos.left,
+                top: panelPos.top,
+                width: PANEL_WIDTH,
+              }}
               onMouseEnter={() => {
                 if (hideTimer.current) window.clearTimeout(hideTimer.current);
                 hideTimer.current = null;
@@ -610,61 +670,119 @@ export function Observatory({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <StarInspectorBody star={activeStar} index={indexById.get(activeStar.id) ?? 0} onClose={pinnedId !== null ? () => unpin(true) : undefined} />
+              <StarInspectorBody
+                star={activeStar}
+                index={indexById.get(activeStar.id) ?? 0}
+                onClose={pinnedId !== null ? () => unpin(true) : undefined}
+              />
             </div>
           )}
         </div>
 
         {/* ---------- bottom-left: primary actions ---------- */}
-        <div ref={actionsRef} className="order-4 mt-6 flex flex-wrap gap-2 lg:absolute lg:bottom-8 lg:left-8 lg:z-10 lg:mt-0">
-          <Link href="/do" className="inline-flex items-center gap-2 rounded-sm bg-ink-900 px-4 py-2.5 text-sm font-medium text-white hover:opacity-90">
+        <div
+          ref={actionsRef}
+          className="order-4 mt-6 flex flex-wrap gap-2 lg:absolute lg:bottom-8 lg:left-8 lg:z-10 lg:mt-0"
+        >
+          <Link
+            href="/do"
+            className="inline-flex items-center gap-2 rounded-sm bg-ink-900 px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
+          >
             실행 기록 남기기 <span aria-hidden="true">→</span>
           </Link>
-          <Link href={`/plans/${plan.id}`} className="inline-flex items-center rounded-sm border border-ink-900 bg-surface px-4 py-2.5 text-sm font-medium text-ink-900 hover:bg-surface-muted">
+          <Link
+            href={`/plans/${plan.id}`}
+            className="inline-flex items-center rounded-sm border border-ink-900 bg-surface px-4 py-2.5 text-sm font-medium text-ink-900 hover:bg-surface-muted"
+          >
             현재 계획 보기
           </Link>
         </div>
 
-        {/* ---------- bottom-right: observation readout (each value links to its evidence) ---------- */}
-        <dl
-          ref={statsRef}
-          className="order-3 mt-6 grid grid-cols-2 gap-x-6 gap-y-2 font-mono text-xs sm:flex sm:flex-wrap sm:gap-x-8 lg:absolute lg:bottom-8 lg:right-8 lg:z-10 lg:mt-0 lg:flex-col lg:items-end lg:gap-y-1.5 lg:text-right"
+        {/* ---------- bottom-right (desktop): SEE readout stacked directly above the stats ----------
+            `contents` on mobile/tablet so the stat readout still takes part in the stacked
+            hero's flex ordering; SEE is desktop-only here (HomeCarousel carries the mobile one). */}
+        <div
+          ref={readoutRef}
+          className="contents lg:pointer-events-none lg:absolute lg:bottom-8 lg:right-8 lg:z-10 lg:flex lg:w-72 lg:flex-col lg:items-end lg:gap-60"
         >
-          {(
-            [
-              { key: "done", label: "LIT", value: `${pad2(stats.done)} / ${pad2(stats.planned)}` },
-              { key: "overdue", label: "DELAYED", value: pad2(stats.overdue) },
-              { key: "blocked", label: "BLOCKED", value: pad2(stats.blocked) },
-              { key: "actual", label: "ACTUAL", value: minutesToMonoLabel(stats.actualMinutes) },
-            ] as const
-          ).map((row) => (
-            <div key={row.key} className="flex items-baseline gap-2 lg:justify-end">
-              <dt className="label-coord text-[10px] text-ink-400">{row.label}</dt>
-              <dd>
-                <Link
-                  href={`/see/evidence?scope=${encodeURIComponent(scopeParam)}&metric=${row.key}`}
-                  className="border-b border-transparent text-ink-900 hover:border-ink-900"
-                  title="근거 기록 보기"
-                >
-                  {row.value}
-                </Link>
-              </dd>
-            </div>
-          ))}
-        </dl>
+          <div className="pointer-events-auto hidden w-full text-left lg:block">
+            <EstimateVsActualPanel
+              planId={plan.id}
+              estimatedMinutes={estimatedMinutesTotal}
+              actualMinutes={actualMinutesTotal}
+              diffMinutes={diffMinutes}
+              compact
+            />
+          </div>
+
+          {/* observation readout (each value links to its evidence) */}
+          <dl className="order-3 mt-6 grid grid-cols-2 gap-x-6 gap-y-2 font-mono text-xs sm:flex sm:flex-wrap sm:gap-x-8 lg:pointer-events-auto lg:mt-0 lg:flex-col lg:items-end lg:gap-y-1.5 lg:text-right">
+            {(
+              [
+                {
+                  key: "done",
+                  label: "LIT",
+                  value: `${pad2(stats.done)} / ${pad2(stats.planned)}`,
+                },
+                {
+                  key: "overdue",
+                  label: "DELAYED",
+                  value: pad2(stats.overdue),
+                },
+                {
+                  key: "blocked",
+                  label: "BLOCKED",
+                  value: pad2(stats.blocked),
+                },
+                {
+                  key: "actual",
+                  label: "ACTUAL",
+                  value: minutesToMonoLabel(stats.actualMinutes),
+                },
+              ] as const
+            ).map((row) => (
+              <div
+                key={row.key}
+                className="flex items-baseline gap-2 lg:justify-end"
+              >
+                <dt className="label-coord text-[10px] text-ink-400">
+                  {row.label}
+                </dt>
+                <dd>
+                  <Link
+                    href={`/see/evidence?scope=${encodeURIComponent(scopeParam)}&metric=${row.key}`}
+                    className="border-b border-transparent text-ink-900 hover:border-ink-900"
+                    title="근거 기록 보기"
+                  >
+                    {row.value}
+                  </Link>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </div>
 
       {/* ---------- mobile: bottom sheet ---------- */}
       {isCoarse && pinnedId !== null && activeStar && (
         <>
-          <button type="button" aria-label="닫기" className="fixed inset-0 z-30 cursor-default bg-transparent" onClick={() => unpin(false)} />
+          <button
+            type="button"
+            aria-label="닫기"
+            className="fixed inset-0 z-30 cursor-default bg-transparent"
+            onClick={() => unpin(false)}
+          />
           <div
             ref={panelRef}
             role="dialog"
             aria-label={`${activeStar.title} 상세`}
             className="obs-sheet fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border-t border-ink-900/15 bg-[#F5F5F1]/90 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-12px_32px_-12px_rgba(17,17,15,0.3)] backdrop-blur-md backdrop-saturate-150"
           >
-            <StarInspectorBody star={activeStar} index={indexById.get(activeStar.id) ?? 0} onClose={() => unpin(true)} />
+            <StarInspectorBody
+              star={activeStar}
+              index={indexById.get(activeStar.id) ?? 0}
+              onClose={() => unpin(true)}
+            />
           </div>
         </>
       )}
