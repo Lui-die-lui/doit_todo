@@ -1,6 +1,19 @@
 /** Pure SVG geometry helpers -- no React, no state, fully unit-testable. */
 
 /**
+ * Rounds a coordinate to 3 decimal places. `Math.cos`/`Math.sin` (and
+ * `Math.hypot`) aren't required by spec to be bit-identical across engines,
+ * so the same trig call can return a last-ULP-different float during SSR
+ * (Node) vs. hydration (the browser) -- React then flags a hydration
+ * mismatch on the raw, unrounded SVG attribute. Rounding before it's used
+ * as an attribute value collapses that ULP-level noise (well under 0.001)
+ * without any visible effect on this viewBox's scale.
+ */
+export function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
+}
+
+/**
  * A 4-point "sparkle"/"twinkle" glyph: tips at N/E/S/W joined by concave
  * quadratic curves that pinch in toward the center, rather than the straight
  * edges of a classic 5-point star polygon. Returns an SVG path `d` string
@@ -9,10 +22,10 @@
  * `waistRatio` controls how sharply the sides pinch in: smaller = sharper
  * concave waist (closer to the reference glyph), larger = plumper/rounder.
  */
-export function sparklePath(cx: number, cy: number, outerR: number, waistRatio = 0.26): string {
+export function sparklePath(cx: number, cy: number, outerR: number, waistRatio = 0.26, rotationDeg = 0): string {
   const waistR = outerR * waistRatio;
   const point = (angleDeg: number, r: number): [number, number] => {
-    const rad = (angleDeg * Math.PI) / 180;
+    const rad = ((angleDeg + rotationDeg) * Math.PI) / 180;
     return [cx + Math.cos(rad) * r, cy + Math.sin(rad) * r];
   };
   const tips = [-90, 0, 90, 180].map((a) => point(a, outerR));
@@ -27,36 +40,29 @@ export function sparklePath(cx: number, cy: number, outerR: number, waistRatio =
   return d + " Z";
 }
 
-export type RayLine = { x1: number; y1: number; x2: number; y2: number };
+/**
+ * A completed star's glyph, by size tier, is the actual artwork from
+ * image/stars.png (glyphs 1/3/4 -- the X, 2nd glyph, is not used), cropped to
+ * public/stars/*.png and drawn with an SVG <image>, not redrawn as a path.
+ * width/height are each cropped file's true pixel size, needed to preserve
+ * its aspect ratio when it's scaled to a given star radius.
+ */
+export const DONE_STAR_IMAGES: Record<"small" | "medium" | "large", { src: string; width: number; height: number }> = {
+  small: { src: "/stars/small.png", width: 232, height: 395 },
+  medium: { src: "/stars/medium.png", width: 390, height: 395 },
+  large: { src: "/stars/large.png", width: 387, height: 395 },
+};
 
-export function radiatingRayLines(
+/** Bounding box (in viewBox units) to draw a size tier's image so its longest axis spans 2*radius, centered on (cx, cy). */
+export function doneStarImageRect(
   cx: number,
   cy: number,
-  innerR: number,
-  outerR: number,
-  count = 8,
-  rotationDeg = 0,
-): RayLine[] {
-  const lines: RayLine[] = [];
-  for (let i = 0; i < count; i++) {
-    const angle = rotationDeg + (360 / count) * i;
-    const rad = (angle * Math.PI) / 180;
-    lines.push({
-      x1: cx + Math.cos(rad) * innerR,
-      y1: cy + Math.sin(rad) * innerR,
-      x2: cx + Math.cos(rad) * outerR,
-      y2: cy + Math.sin(rad) * outerR,
-    });
-  }
-  return lines;
-}
-
-/** A short diagonal tick placed just outside a star to mark it overdue. */
-export function overdueTick(cx: number, cy: number, offsetR: number, length = 3.4): RayLine {
-  const rad = (45 * Math.PI) / 180;
-  const bx = cx + Math.cos(rad) * offsetR;
-  const by = cy + Math.sin(rad) * offsetR;
-  const dx = Math.cos(rad + Math.PI / 2) * (length / 2);
-  const dy = Math.sin(rad + Math.PI / 2) * (length / 2);
-  return { x1: bx - dx, y1: by - dy, x2: bx + dx, y2: by + dy };
+  radius: number,
+  tier: "small" | "medium" | "large",
+): { href: string; x: number; y: number; width: number; height: number } {
+  const img = DONE_STAR_IMAGES[tier];
+  const scale = (radius * 2) / Math.max(img.width, img.height);
+  const width = img.width * scale;
+  const height = img.height * scale;
+  return { href: img.src, x: cx - width / 2, y: cy - height / 2, width, height };
 }

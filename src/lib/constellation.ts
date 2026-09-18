@@ -5,10 +5,24 @@ import { priorityLabels } from "./validation";
 const GOLDEN_ANGLE_DEG = 137.50776405;
 
 export const ORBIT_RADII: readonly [number, number, number] = [34, 62, 90];
-const MIN_STAR_RADIUS = 2.2;
+const MIN_STAR_RADIUS = 2.8;
 const MAX_STAR_RADIUS = 5.5;
 /** Minimum arc length (in the same normalized units as ORBIT_RADII) kept between two stars on one orbit. */
 const MIN_ARC_LENGTH = 11;
+
+export type StarSizeTier = "small" | "medium" | "large";
+
+/**
+ * Which third of the [MIN_STAR_RADIUS, MAX_STAR_RADIUS] range a star falls
+ * into, by its estimated-minutes-derived radius. Used to vary a completed
+ * star's glyph (outline / filled / filled+rays) by how big the task was.
+ */
+export function sizeTierForRadius(radius: number): StarSizeTier {
+  const range = MAX_STAR_RADIUS - MIN_STAR_RADIUS;
+  if (radius < MIN_STAR_RADIUS + range / 3) return "small";
+  if (radius < MIN_STAR_RADIUS + (range * 2) / 3) return "medium";
+  return "large";
+}
 
 export type ConstellationTaskInput = {
   id: number;

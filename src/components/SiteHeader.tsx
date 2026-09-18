@@ -11,10 +11,18 @@ const TABS = [
 
 export function SiteHeader() {
   const pathname = usePathname();
+  // The home observatory hero breaks out to a wider canvas than every other page's
+  // max-w-6xl column -- match the header's edges to whichever is actually below it,
+  // rather than one fixed width that lines up with only one of the two.
+  const isHome = pathname === "/";
 
   return (
     <header className="border-b border-line bg-paper">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-4 sm:px-6">
+      <div
+        className={`mx-auto flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-4 ${
+          isHome ? "max-w-[1920px] px-5 sm:px-8" : "max-w-6xl px-4 sm:px-6"
+        }`}
+      >
         <Link href="/" className="flex items-baseline gap-3">
           <span className="text-lg font-bold tracking-tight text-ink-900">DO:IT</span>
           <span className="label-coord text-[10px] text-ink-400">PLAN · DO · SEE</span>

@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { ConstellationLayout, ConstellationStar } from "@/lib/constellation";
-import { describeStar } from "@/lib/constellation";
-import { formatDateOnly, minutesToLabel, minutesToMonoLabel } from "@/lib/date";
+import { describeStar, sizeTierForRadius } from "@/lib/constellation";
+import { formatDateOnly, formatDateTimeSeoul, minutesToLabel, minutesToMonoLabel } from "@/lib/date";
 import { priorityLabels } from "@/lib/validation";
-import { overdueTick, radiatingRayLines, sparklePath } from "@/components/constellation/starGeometry";
+import { doneStarImageRect, round3, sparklePath } from "@/components/constellation/starGeometry";
+import { HomeTaskList, type HomeTaskRow } from "./HomeTaskList";
 
 const VIEW = 116;
 const BEZEL_RADIUS = 100;
@@ -32,6 +33,16 @@ export type ObservatoryStats = {
   overdue: number;
   blocked: number;
   actualMinutes: number;
+};
+
+export type HomeRecentLog = {
+  id: number;
+  taskId: number;
+  taskTitle: string;
+  startAt: string;
+  endAt: string;
+  actualMinutes: number;
+  blockerReason: string | null;
 };
 
 type PanelPosition = { left: number; top: number; side: "left" | "right"; starX: number; starY: number };
@@ -176,29 +187,30 @@ function StarNode({
           const deg = count === 1 ? -90 : -90 - spread / 2 + (spread / (count - 1)) * i;
           const rad = (deg * Math.PI) / 180;
           const r = star.radius + (star.hasBlocker ? 5.6 : 2.6);
-          return <circle key={i} cx={star.x + Math.cos(rad) * r} cy={star.y + Math.sin(rad) * r} r={0.7} fill="#666660" />;
+          return (
+            <circle key={i} cx={round3(star.x + Math.cos(rad) * r)} cy={round3(star.y + Math.sin(rad) * r)} r={0.7} fill="#666660" />
+          );
         })}
 
       {star.status === "DONE" ? (
-        <g className="doit-star-reveal">
-          <g className="obs-star__rays">
-            {radiatingRayLines(star.x, star.y, star.radius * 1.2, star.radius * 2, 8).map((ray, i) => (
-              <line key={i} x1={ray.x1} y1={ray.y1} x2={ray.x2} y2={ray.y2} stroke="#11110F" strokeOpacity={0.3} strokeWidth={0.3} />
-            ))}
-          </g>
-          <path className="obs-star__body" d={sparkle} fill="#11110F" />
-        </g>
+        (() => {
+          const rect = doneStarImageRect(star.x, star.y, star.radius, sizeTierForRadius(star.radius));
+          return (
+            <image
+              className="doit-star-reveal obs-star__body"
+              href={rect.href}
+              x={round3(rect.x)}
+              y={round3(rect.y)}
+              width={round3(rect.width)}
+              height={round3(rect.height)}
+            />
+          );
+        })()
       ) : notStarted ? (
         <circle className="obs-star__body" cx={star.x} cy={star.y} r={star.radius * 0.4} fill="#999992" fillOpacity={0.55} />
       ) : (
         <path className="obs-star__body obs-star__body--outline" d={sparkle} fill="none" stroke="#666660" strokeWidth={1} />
       )}
-
-      {star.isOverdue &&
-        (() => {
-          const t = overdueTick(star.x, star.y, star.radius + 3.5);
-          return <line x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke="#11110F" strokeWidth={1.2} />;
-        })()}
     </g>
   );
 }
@@ -213,12 +225,22 @@ export function Observatory({
   orbitDateLabels,
   stats,
   nextPlan,
+  taskRows,
+  recentLogs,
+  estimatedMinutesTotal,
+  actualMinutesTotal,
+  diffMinutes,
 }: {
   plan: ObservatoryPlan;
   layout: ConstellationLayout;
   orbitDateLabels: [string, string, string];
   stats: ObservatoryStats;
   nextPlan: { id: number; title: string } | null;
+  taskRows: HomeTaskRow[];
+  recentLogs: HomeRecentLog[];
+  estimatedMinutesTotal: number;
+  actualMinutesTotal: number;
+  diffMinutes: number;
 }) {
   const [hoverId, setHoverId] = useState<number | null>(null);
   const [pinnedId, setPinnedId] = useState<number | null>(null);
@@ -389,7 +411,13 @@ export function Observatory({
   const bezelTicks = Array.from({ length: 60 }, (_, i) => {
     const rad = (i * 6 * Math.PI) / 180;
     const inner = BEZEL_RADIUS - (i % 5 === 0 ? 3.5 : 1.8);
-    return { key: i, x1: Math.cos(rad) * inner, y1: Math.sin(rad) * inner, x2: Math.cos(rad) * BEZEL_RADIUS, y2: Math.sin(rad) * BEZEL_RADIUS };
+    return {
+      key: i,
+      x1: round3(Math.cos(rad) * inner),
+      y1: round3(Math.sin(rad) * inner),
+      x2: round3(Math.cos(rad) * BEZEL_RADIUS),
+      y2: round3(Math.sin(rad) * BEZEL_RADIUS),
+    };
   });
 
   const isComplete = layout.isComplete;
@@ -401,9 +429,9 @@ export function Observatory({
       aria-labelledby="observatory-title"
       className="relative left-1/2 -mt-8 w-screen -translate-x-1/2 overflow-hidden"
     >
-      <div className="relative mx-auto flex min-h-[calc(100svh-8.5rem)] max-w-[1600px] flex-col px-5 pb-8 pt-6 sm:px-8 lg:block lg:pb-0 lg:pt-0">
+      <div className="relative mx-auto flex min-h-[calc(100svh-8.5rem)] max-w-[1920px] flex-col px-5 pb-5 pt-6 sm:px-8 lg:block lg:pb-0 lg:pt-0">
         {/* ---------- top-left: plan ---------- */}
-        <div className="order-1 max-w-md lg:absolute lg:left-8 lg:top-8 lg:z-10 lg:max-w-sm lg:pointer-events-none">
+        <div className="order-1 max-w-md lg:absolute lg:left-8 lg:top-8 lg:z-10 lg:w-[22rem] lg:max-w-[22rem] lg:pointer-events-none">
           <p className="label-coord text-[10px] text-ink-400">CURRENT CONSTELLATION / {pad2(plan.id)}</p>
           <h1 id="observatory-title" className="mt-1 break-words text-2xl font-bold leading-tight tracking-tight text-ink-900 sm:text-3xl">
             {plan.title}
@@ -419,15 +447,95 @@ export function Observatory({
           <p className="mt-1 label-coord text-[11px] text-ink-900">
             {isComplete ? "CONSTELLATION COMPLETE" : `${pad2(stats.done)} / ${pad2(stats.planned)} STARS LIT`}
           </p>
+
+          {/* Task list, embedded as a glass panel below the fold-fold-free hero (desktop only --
+              on mobile the hero stacks vertically already, so the full-width section below still
+              carries it). Internal scroll keeps an arbitrary task count from pushing the hero's
+              height past the viewport. */}
+          <div className="obs-task-panel pointer-events-auto mt-4 hidden overflow-hidden rounded-2xl border border-ink-900/15 bg-[#F5F5F1]/80 shadow-[0_12px_32px_-12px_rgba(17,17,15,0.3)] backdrop-blur-md backdrop-saturate-150 lg:block">
+            <div className="flex items-baseline justify-between border-b border-ink-900/10 px-4 pb-2 pt-3">
+              <h2 className="label-coord text-[10px] text-ink-900">TASKS / 할 일 ({taskRows.length})</h2>
+              <Link href="/tasks" className="label-coord text-[9px] text-ink-400 hover:text-ink-900">
+                전체 →
+              </Link>
+            </div>
+            <div className="max-h-[min(32vh,280px)] overflow-y-auto px-3 pb-3 pt-2">
+              <HomeTaskList tasks={taskRows} planId={plan.id} compact />
+            </div>
+          </div>
         </div>
 
         {/* ---------- top-right: observer (reserved for future account info) ---------- */}
-        <div className="order-5 mt-6 border-t border-line pt-3 text-right lg:absolute lg:right-8 lg:top-8 lg:z-10 lg:mt-0 lg:border-0 lg:pt-0 lg:pointer-events-none">
+        <div className="order-5 mt-4 border-t border-line pt-2 text-right lg:absolute lg:right-8 lg:top-8 lg:z-10 lg:mt-0 lg:w-72 lg:border-0 lg:pt-0 lg:pointer-events-none">
           <p className="label-coord text-[10px] text-ink-400">PUBLIC OBSERVATORY</p>
           <p className="mt-1 label-coord text-[11px] text-ink-900">GUEST VIEW</p>
-          <p className="mt-1 max-w-[16rem] text-xs leading-relaxed text-ink-500 lg:ml-auto">
+          <p className="ml-auto mt-1 max-w-[16rem] text-xs leading-relaxed text-ink-500">
             로그인 없이 공개된 기록입니다. 링크가 있는 누구나 볼 수 있어요.
           </p>
+
+          {/* DO + SEE preview, plain (no glass panel) -- fills the empty vertical space between
+              the observer text and the bottom-right stat readout, desktop only. Mirrors the
+              full-width DO/SEE section below, which stays for mobile/tablet. */}
+          <div className="pointer-events-auto mt-8 hidden text-left lg:block">
+            <div className="flex items-baseline justify-between border-b border-ink-900 pb-2">
+              <h2 className="label-coord text-[11px] text-ink-900">DO / 최근 실행 기록</h2>
+              <Link href="/do" className="label-coord text-[10px] text-ink-500 hover:text-ink-900">
+                전체 기록 →
+              </Link>
+            </div>
+            {recentLogs.length === 0 ? (
+              <p className="mt-3 text-xs text-ink-400">아직 실행 기록이 없습니다.</p>
+            ) : (
+              <ul className="flex flex-col border-l border-line-strong pl-4">
+                {recentLogs.slice(0, 3).map((log) => (
+                  <li key={log.id} className="relative border-b border-line py-2.5 text-sm last:border-b-0">
+                    <span
+                      aria-hidden="true"
+                      className="absolute -left-[18.5px] top-[0.95rem] h-1.5 w-1.5 rounded-full border border-ink-900 bg-surface"
+                    />
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                      <span className="font-mono text-[11px] text-ink-900">
+                        {formatDateTimeSeoul(log.startAt)} – {formatDateTimeSeoul(log.endAt).slice(11)}
+                      </span>
+                      <span className="font-mono text-xs font-semibold text-ink-900">{minutesToLabel(log.actualMinutes)}</span>
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-ink-700">
+                      <Link href={`/tasks/${log.taskId}`} className="underline underline-offset-2">
+                        {log.taskTitle}
+                      </Link>
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-6 border-b border-ink-900 pb-2">
+              <h2 className="label-coord text-[11px] text-ink-900">SEE / 예상 대 실제</h2>
+            </div>
+            <dl className="mt-2 flex flex-col gap-1.5 font-mono text-xs">
+              <div className="flex justify-between gap-4">
+                <dt className="label-coord text-[10px] text-ink-400">EST.</dt>
+                <dd className="text-ink-900">{minutesToLabel(estimatedMinutesTotal)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="label-coord text-[10px] text-ink-400">ACTUAL</dt>
+                <dd className="text-ink-900">{minutesToLabel(actualMinutesTotal)}</dd>
+              </div>
+              <div className="flex justify-between gap-4 border-t border-line pt-1.5">
+                <dt className="label-coord text-[10px] text-ink-400">DIFF</dt>
+                <dd className="font-semibold text-ink-900">
+                  {diffMinutes > 0 ? "+" : ""}
+                  {minutesToLabel(diffMinutes)}
+                </dd>
+              </div>
+            </dl>
+            <Link
+              href={`/see?planId=${plan.id}`}
+              className="label-coord mt-3 block border border-line-strong px-4 py-2 text-center text-[10px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
+            >
+              SEE / 돌아보기 열기 →
+            </Link>
+          </div>
         </div>
 
         {/* ---------- center: the star field (page background, no card) ---------- */}
@@ -441,7 +549,7 @@ export function Observatory({
           <svg
             ref={svgRef}
             viewBox={`-${VIEW} -${VIEW} ${VIEW * 2} ${VIEW * 2}`}
-            className="mx-auto h-auto w-full lg:w-[min(68vw,calc(100svh-10rem))]"
+            className="mx-auto h-auto w-full lg:w-[min(52vw,calc(100svh-10rem))]"
             role="group"
             aria-label={`${plan.title} 별자리, 할 일 ${layout.stars.length}개 중 ${stats.done}개 완료. 각 별은 버튼입니다.`}
           >
@@ -471,10 +579,10 @@ export function Observatory({
                 return (
                   <line
                     key={i}
-                    x1={Math.cos(rad) * 6}
-                    y1={Math.sin(rad) * 6}
-                    x2={Math.cos(rad) * (BEZEL_RADIUS - 4)}
-                    y2={Math.sin(rad) * (BEZEL_RADIUS - 4)}
+                    x1={round3(Math.cos(rad) * 6)}
+                    y1={round3(Math.sin(rad) * 6)}
+                    x2={round3(Math.cos(rad) * (BEZEL_RADIUS - 4))}
+                    y2={round3(Math.sin(rad) * (BEZEL_RADIUS - 4))}
                     stroke="#E8E8E2"
                     strokeWidth={0.35}
                   />
@@ -495,10 +603,10 @@ export function Observatory({
                 const rad = Math.PI / 4;
                 const r0 = BEZEL_RADIUS + 5;
                 const r1 = 150;
-                const x0 = Math.cos(rad) * r0;
-                const y0 = Math.sin(rad) * r0;
-                const x1 = Math.cos(rad) * r1;
-                const y1 = Math.sin(rad) * r1;
+                const x0 = round3(Math.cos(rad) * r0);
+                const y0 = round3(Math.sin(rad) * r0);
+                const x1 = round3(Math.cos(rad) * r1);
+                const y1 = round3(Math.sin(rad) * r1);
                 return (
                   <g>
                     <line x1={x0} y1={y0} x2={x1} y2={y1} stroke="#11110F" strokeWidth={0.6} strokeDasharray="1.5 2" />
@@ -511,7 +619,7 @@ export function Observatory({
               })()}
 
             {layout.connections.map((c, i) => {
-              const length = Math.hypot(c.to.x - c.from.x, c.to.y - c.from.y);
+              const length = round3(Math.hypot(c.to.x - c.from.x, c.to.y - c.from.y));
               return (
                 <line
                   key={i}
@@ -553,36 +661,23 @@ export function Observatory({
 
           {/* ---------- floating inspector (desktop) ---------- */}
           {activeStar && panelPos && !isCoarse && (
-            <>
-              <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
-                <line
-                  x1={panelPos.starX}
-                  y1={panelPos.starY}
-                  x2={panelPos.side === "right" ? panelPos.left : panelPos.left + PANEL_WIDTH}
-                  y2={panelPos.top + 28}
-                  stroke="#11110F"
-                  strokeWidth={0.75}
-                  strokeOpacity={0.6}
-                />
-              </svg>
-              <div
-                ref={panelRef}
-                role={pinnedId !== null ? "dialog" : "tooltip"}
-                aria-label={`${activeStar.title} 상세`}
-                className="obs-inspector absolute z-20 rounded-2xl border border-ink-900/15 bg-[#F5F5F1]/85 p-4 shadow-[0_12px_32px_-12px_rgba(17,17,15,0.35)] backdrop-blur-md backdrop-saturate-150"
-                style={{ left: panelPos.left, top: panelPos.top, width: PANEL_WIDTH }}
-                onMouseEnter={() => {
-                  if (hideTimer.current) window.clearTimeout(hideTimer.current);
-                  hideTimer.current = null;
-                }}
-                onMouseLeave={() => {
-                  if (pinnedId === null) scheduleHide();
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <InspectorBody star={activeStar} index={indexById.get(activeStar.id) ?? 0} onClose={pinnedId !== null ? () => unpin(true) : undefined} />
-              </div>
-            </>
+            <div
+              ref={panelRef}
+              role={pinnedId !== null ? "dialog" : "tooltip"}
+              aria-label={`${activeStar.title} 상세`}
+              className="obs-inspector absolute z-20 rounded-2xl border border-ink-900/15 bg-[#F5F5F1]/85 p-4 shadow-[0_12px_32px_-12px_rgba(17,17,15,0.35)] backdrop-blur-md backdrop-saturate-150"
+              style={{ left: panelPos.left, top: panelPos.top, width: PANEL_WIDTH }}
+              onMouseEnter={() => {
+                if (hideTimer.current) window.clearTimeout(hideTimer.current);
+                hideTimer.current = null;
+              }}
+              onMouseLeave={() => {
+                if (pinnedId === null) scheduleHide();
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <InspectorBody star={activeStar} index={indexById.get(activeStar.id) ?? 0} onClose={pinnedId !== null ? () => unpin(true) : undefined} />
+            </div>
           )}
         </div>
 

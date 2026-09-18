@@ -2,10 +2,10 @@
 
 import { useState, type CSSProperties } from "react";
 import type { ConstellationLayout, ConstellationStar } from "@/lib/constellation";
-import { describeStar } from "@/lib/constellation";
+import { describeStar, sizeTierForRadius } from "@/lib/constellation";
 import { formatDateOnly, minutesToLabel } from "@/lib/date";
 import { priorityLabels } from "@/lib/validation";
-import { overdueTick, radiatingRayLines, sparklePath } from "./starGeometry";
+import { doneStarImageRect, round3, sparklePath } from "./starGeometry";
 
 const VIEW = 116; // half-width of the square viewBox
 
@@ -51,8 +51,8 @@ function StarMark({
           return (
             <circle
               key={i}
-              cx={star.x + Math.cos(rad) * r}
-              cy={star.y + Math.sin(rad) * r}
+              cx={round3(star.x + Math.cos(rad) * r)}
+              cy={round3(star.y + Math.sin(rad) * r)}
               r={0.7}
               fill="#666660"
             />
@@ -83,34 +83,24 @@ function StarMark({
       )}
 
       {star.status === "DONE" ? (
-        <g className="doit-star-reveal">
-          {radiatingRayLines(star.x, star.y, star.radius * 1.2, star.radius * 2, 8).map((ray, i) => (
-            <line
-              key={i}
-              x1={ray.x1}
-              y1={ray.y1}
-              x2={ray.x2}
-              y2={ray.y2}
-              stroke="#11110F"
-              strokeOpacity={0.3}
-              strokeWidth={0.5}
+        (() => {
+          const rect = doneStarImageRect(star.x, star.y, star.radius, sizeTierForRadius(star.radius));
+          return (
+            <image
+              className="doit-star-reveal"
+              href={rect.href}
+              x={round3(rect.x)}
+              y={round3(rect.y)}
+              width={round3(rect.width)}
+              height={round3(rect.height)}
             />
-          ))}
-          <path d={sparklePath(star.x, star.y, star.radius)} fill="#11110F" />
-        </g>
+          );
+        })()
       ) : notStarted ? (
         <circle cx={star.x} cy={star.y} r={star.radius * 0.4} fill="#999992" fillOpacity={0.5} />
       ) : (
         <path d={sparklePath(star.x, star.y, star.radius)} fill="none" stroke="#666660" strokeWidth={1} />
       )}
-
-      {star.isOverdue &&
-        (() => {
-          const tick = overdueTick(star.x, star.y, star.radius + 3.5);
-          return (
-            <line x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} stroke="#11110F" strokeWidth={1.2} />
-          );
-        })()}
     </a>
   );
 }
@@ -146,10 +136,10 @@ export function ConstellationSVG({
     const inner = BEZEL_RADIUS - (long ? 3.5 : 1.8);
     return {
       key: deg,
-      x1: Math.cos(rad) * inner,
-      y1: Math.sin(rad) * inner,
-      x2: Math.cos(rad) * BEZEL_RADIUS,
-      y2: Math.sin(rad) * BEZEL_RADIUS,
+      x1: round3(Math.cos(rad) * inner),
+      y1: round3(Math.sin(rad) * inner),
+      x2: round3(Math.cos(rad) * BEZEL_RADIUS),
+      y2: round3(Math.sin(rad) * BEZEL_RADIUS),
     };
   });
 
@@ -167,10 +157,10 @@ export function ConstellationSVG({
           return (
             <line
               key={i}
-              x1={Math.cos(rad) * 6}
-              y1={Math.sin(rad) * 6}
-              x2={Math.cos(rad) * (BEZEL_RADIUS - 4)}
-              y2={Math.sin(rad) * (BEZEL_RADIUS - 4)}
+              x1={round3(Math.cos(rad) * 6)}
+              y1={round3(Math.sin(rad) * 6)}
+              x2={round3(Math.cos(rad) * (BEZEL_RADIUS - 4))}
+              y2={round3(Math.sin(rad) * (BEZEL_RADIUS - 4))}
               stroke="#E8E8E2"
               strokeWidth={0.35}
             />
@@ -211,10 +201,10 @@ export function ConstellationSVG({
             const rad = Math.PI / 4;
             const r0 = BEZEL_RADIUS + 5;
             const r1 = 150;
-            const x0 = Math.cos(rad) * r0;
-            const y0 = Math.sin(rad) * r0;
-            const x1 = Math.cos(rad) * r1;
-            const y1 = Math.sin(rad) * r1;
+            const x0 = round3(Math.cos(rad) * r0);
+            const y0 = round3(Math.sin(rad) * r0);
+            const x1 = round3(Math.cos(rad) * r1);
+            const y1 = round3(Math.sin(rad) * r1);
             return (
               <g>
                 <line x1={x0} y1={y0} x2={x1} y2={y1} stroke="#11110F" strokeWidth={0.6} strokeDasharray="1.5 2" />
@@ -264,7 +254,7 @@ export function ConstellationSVG({
           ))}
 
         {layout.connections.map((c, i) => {
-          const length = Math.hypot(c.to.x - c.from.x, c.to.y - c.from.y);
+          const length = round3(Math.hypot(c.to.x - c.from.x, c.to.y - c.from.y));
           return (
             <line
               key={i}

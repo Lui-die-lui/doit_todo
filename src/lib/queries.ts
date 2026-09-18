@@ -12,13 +12,21 @@ export async function getActivePlans() {
     .orderBy(desc(plans.startDate), asc(plans.id));
 }
 
-/** The plan to show on the home screen: one whose date range covers today (Seoul), else the most recently created active plan. */
-export async function getHomePlan(todaySeoul: string) {
-  const active = await getActivePlans();
+/** Picks the home-screen plan from an already-fetched active list: one whose date range covers today (Seoul), else the most recently created. */
+export function pickHomePlan<T extends { startDate: string; endDate: string; createdAt: string | Date }>(
+  active: T[],
+  todaySeoul: string,
+): T | null {
   if (active.length === 0) return null;
   const current = active.find((p) => p.startDate <= todaySeoul && todaySeoul <= p.endDate);
   if (current) return current;
   return [...active].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+}
+
+/** The plan to show on the home screen: one whose date range covers today (Seoul), else the most recently created active plan. */
+export async function getHomePlan(todaySeoul: string) {
+  const active = await getActivePlans();
+  return pickHomePlan(active, todaySeoul);
 }
 
 export async function getAllPlans() {

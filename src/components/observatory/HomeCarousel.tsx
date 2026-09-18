@@ -4,18 +4,10 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import type { ConstellationLayout } from "@/lib/constellation";
 import { formatDateTimeSeoul, minutesToLabel } from "@/lib/date";
-import { Observatory, type ObservatoryPlan, type ObservatoryStats } from "./Observatory";
+import { Observatory, type HomeRecentLog, type ObservatoryPlan, type ObservatoryStats } from "./Observatory";
 import { HomeTaskList, type HomeTaskRow } from "./HomeTaskList";
 
-export type HomeRecentLog = {
-  id: number;
-  taskId: number;
-  taskTitle: string;
-  startAt: string;
-  endAt: string;
-  actualMinutes: number;
-  blockerReason: string | null;
-};
+export type { HomeRecentLog };
 
 export type HomeSlide = {
   plan: ObservatoryPlan;
@@ -97,10 +89,17 @@ export function HomeCarousel({ slides, initialIndex }: { slides: HomeSlide[]; in
           orbitDateLabels={slide.orbitDateLabels}
           stats={slide.stats}
           nextPlan={slide.nextPlan}
+          taskRows={slide.taskRows}
+          recentLogs={slide.recentLogs}
+          estimatedMinutesTotal={slide.estimatedMinutesTotal}
+          actualMinutesTotal={slide.actualMinutesTotal}
+          diffMinutes={slide.diffMinutes}
         />
       </div>
 
-      <section aria-labelledby="home-tasks-heading" className="flex flex-col gap-5">
+      {/* Desktop already carries this list inside the observatory hero's glass panel;
+          this full-width version stays for mobile/tablet, where the hero stacks vertically. */}
+      <section aria-labelledby="home-tasks-heading" className="flex flex-col gap-5 lg:hidden">
         <div className="flex items-baseline justify-between border-b border-ink-900 pb-2">
           <h2 id="home-tasks-heading" className="label-coord text-[11px] text-ink-900">
             TASKS / 이 계획의 할 일 ({slide.taskRows.length})
@@ -110,7 +109,9 @@ export function HomeCarousel({ slides, initialIndex }: { slides: HomeSlide[]; in
         <HomeTaskList key={slide.plan.id} tasks={slide.taskRows} planId={slide.plan.id} />
       </section>
 
-      <section aria-labelledby="home-do-heading" className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
+      {/* Desktop already carries DO + SEE previews inside the observatory hero's top-right
+          corner; this full-width version stays for mobile/tablet. */}
+      <section aria-labelledby="home-do-heading" className="grid grid-cols-1 gap-8 lg:hidden">
         <div className="flex flex-col gap-4">
           <div className="flex items-baseline justify-between border-b border-ink-900 pb-2">
             <h2 id="home-do-heading" className="label-coord text-[11px] text-ink-900">

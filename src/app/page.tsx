@@ -2,7 +2,7 @@ import Link from "next/link";
 import { computeRetroAggregation } from "@/lib/aggregations";
 import { buildConstellationTasks, computeConstellationLayout, getOrbitBoundaryDates } from "@/lib/constellation";
 import { isOverdue, seoulTodayDateString } from "@/lib/date";
-import { getActivePlans, getActiveTasksForPlan, getCarriedNextPlan, getHomePlan, getWorkLogsForTaskIds } from "@/lib/queries";
+import { getActivePlans, getActiveTasksForPlan, getCarriedNextPlan, getWorkLogsForTaskIds, pickHomePlan } from "@/lib/queries";
 import { HomeCarousel, type HomeSlide } from "@/components/observatory/HomeCarousel";
 import type { HomeTaskRow } from "@/components/observatory/HomeTaskList";
 import type { Plan } from "@/db/schema";
@@ -10,11 +10,8 @@ import type { Plan } from "@/db/schema";
 export const dynamic = "force-dynamic";
 
 async function buildHomeSlide(plan: Plan, today: string): Promise<HomeSlide> {
-  const tasks = await getActiveTasksForPlan(plan.id);
-  const [workLogs, nextPlan] = await Promise.all([
-    getWorkLogsForTaskIds(tasks.map((t) => t.id)),
-    getCarriedNextPlan(plan.id),
-  ]);
+  const [tasks, nextPlan] = await Promise.all([getActiveTasksForPlan(plan.id), getCarriedNextPlan(plan.id)]);
+  const workLogs = await getWorkLogsForTaskIds(tasks.map((t) => t.id));
 
   const aggregation = computeRetroAggregation(tasks, workLogs, today);
   const constellationTasks = buildConstellationTasks(tasks, workLogs);
@@ -79,7 +76,8 @@ async function buildHomeSlide(plan: Plan, today: string): Promise<HomeSlide> {
 
 export default async function HomePage() {
   const today = seoulTodayDateString();
-  const [plans, homePlan] = await Promise.all([getActivePlans(), getHomePlan(today)]);
+  const plans = await getActivePlans();
+  const homePlan = pickHomePlan(plans, today);
 
   if (plans.length === 0 || !homePlan) {
     return (

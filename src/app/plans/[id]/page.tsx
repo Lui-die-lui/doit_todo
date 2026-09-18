@@ -23,14 +23,12 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   const plan = await getPlanById(planId);
   if (!plan) notFound();
 
-  const [tasks, reflections] = await Promise.all([
+  const [tasks, reflections, nextPlan] = await Promise.all([
     getActiveTasksForPlan(planId),
     getReflectionsForPlan(planId),
-  ]);
-  const [workLogs, nextPlan] = await Promise.all([
-    getWorkLogsForTaskIds(tasks.map((t) => t.id)),
     getCarriedNextPlan(planId),
   ]);
+  const workLogs = await getWorkLogsForTaskIds(tasks.map((t) => t.id));
   const today = seoulTodayDateString();
 
   return (
