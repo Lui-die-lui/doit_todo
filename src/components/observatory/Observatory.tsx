@@ -9,13 +9,12 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import type { ConstellationLayout, ConstellationStar } from "@/lib/constellation";
-import { describeStar, sizeTierForRadius } from "@/lib/constellation";
 import { formatDateOnly, formatDateTimeSeoul, minutesToLabel, minutesToMonoLabel } from "@/lib/date";
 import { priorityLabels } from "@/lib/validation";
-import { doneStarImageRect, round3, sparklePath } from "@/components/constellation/starGeometry";
+import { InteractiveStar, StarInspectorBody } from "@/components/constellation/InteractiveStar";
+import { round3 } from "@/components/constellation/starGeometry";
 import { HomeTaskList, type HomeTaskRow } from "./HomeTaskList";
 
 const VIEW = 116;
@@ -62,166 +61,6 @@ function pad2(n: number): string {
 
 function shortDate(iso: string): string {
   return formatDateOnly(iso).slice(5);
-}
-
-function statusLabel(star: ConstellationStar): string {
-  return star.status === "DONE" ? "완료" : star.isOverdue ? "지연" : star.workLogCount > 0 ? "진행 중" : "시작 전";
-}
-
-/* ------------------------------------------------------------------ */
-/* Inspector content (shared by the floating panel and the mobile sheet) */
-/* ------------------------------------------------------------------ */
-
-function InspectorBody({ star, index, onClose }: { star: ConstellationStar; index: number; onClose?: () => void }) {
-  return (
-    <div className="flex flex-col gap-3 text-sm">
-      <div className="flex items-start justify-between gap-3">
-        <span className="label-coord text-[10px] text-ink-400">STAR / {pad2(index)}</span>
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="label-coord -mr-1 -mt-1 px-1.5 py-0.5 text-[10px] text-ink-500 hover:text-ink-900"
-          >
-            ESC ×
-          </button>
-        )}
-      </div>
-      <p className="break-words text-base font-semibold leading-snug text-ink-900">{star.title}</p>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-mono text-xs">
-        <dt className="label-coord text-[10px] text-ink-400">STATUS</dt>
-        <dd className="text-ink-900">{statusLabel(star)}</dd>
-        <dt className="label-coord text-[10px] text-ink-400">DUE</dt>
-        <dd className="text-ink-900">{formatDateOnly(star.dueDate)}</dd>
-        <dt className="label-coord text-[10px] text-ink-400">PRIORITY</dt>
-        <dd className="text-ink-900">{priorityLabels[star.priority]}</dd>
-        <dt className="label-coord text-[10px] text-ink-400">TAG</dt>
-        <dd className="text-ink-900">{star.tag ? `#${star.tag}` : "—"}</dd>
-        <dt className="label-coord text-[10px] text-ink-400">EST / ACTUAL</dt>
-        <dd className="text-ink-900">
-          {minutesToLabel(star.estimatedMinutes)} / {minutesToLabel(star.actualMinutesTotal)}
-        </dd>
-        <dt className="label-coord text-[10px] text-ink-400">LOGS</dt>
-        <dd className="text-ink-900">
-          {star.workLogCount}건{star.hasBlocker ? " · 막힌 기록 있음" : ""}
-        </dd>
-      </dl>
-      <Link
-        href={`/tasks/${star.id}`}
-        className="mt-1 inline-flex w-fit items-center gap-1 border-b border-ink-900 pb-0.5 text-sm font-medium text-ink-900"
-      >
-        할 일 열기 <span aria-hidden="true">→</span>
-      </Link>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* One star node -- a keyboard-operable button inside the SVG           */
-/* ------------------------------------------------------------------ */
-
-function StarNode({
-  star,
-  active,
-  pinned,
-  onEnter,
-  onLeave,
-  onActivate,
-  nodeRef,
-}: {
-  star: ConstellationStar;
-  active: boolean;
-  pinned: boolean;
-  onEnter: () => void;
-  onLeave: () => void;
-  onActivate: () => void;
-  nodeRef: (el: SVGGElement | null) => void;
-}) {
-  const notStarted = star.status === "TODO" && star.workLogCount === 0;
-  const sparkle = sparklePath(star.x, star.y, star.radius);
-
-  const handleKey = (e: ReactKeyboardEvent<SVGGElement>) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onActivate();
-    }
-  };
-
-  return (
-    <g
-      ref={nodeRef}
-      role="button"
-      tabIndex={0}
-      aria-label={describeStar(star)}
-      aria-expanded={pinned}
-      data-active={active ? "true" : "false"}
-      className="obs-star"
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
-      onFocus={onEnter}
-      onBlur={onLeave}
-      onClick={(e) => {
-        e.stopPropagation();
-        onActivate();
-      }}
-      onKeyDown={handleKey}
-    >
-      {/* generous invisible hit target, independent of the visual size */}
-      <circle cx={star.x} cy={star.y} r={Math.max(star.radius + 4, 10)} fill="transparent" />
-
-      {active && (
-        <g aria-hidden="true">
-          <circle className="obs-ripple" cx={star.x} cy={star.y} r={star.radius + 2.5} fill="none" stroke="#666660" strokeWidth={0.5} />
-          <circle className="obs-ripple obs-ripple--delay" cx={star.x} cy={star.y} r={star.radius + 2.5} fill="none" stroke="#666660" strokeWidth={0.5} />
-        </g>
-      )}
-
-      {star.hasBlocker && (
-        <circle
-          cx={star.x}
-          cy={star.y}
-          r={star.radius + 3.2}
-          fill="none"
-          stroke="#666660"
-          strokeWidth={0.2}
-          strokeDasharray="1.6 2.2"
-        />
-      )}
-
-      {star.workLogCount > 0 &&
-        Array.from({ length: Math.min(star.workLogCount, 8) }, (_, i) => {
-          const count = Math.min(star.workLogCount, 8);
-          const spread = 70;
-          const deg = count === 1 ? -90 : -90 - spread / 2 + (spread / (count - 1)) * i;
-          const rad = (deg * Math.PI) / 180;
-          const r = star.radius + (star.hasBlocker ? 5.6 : 2.6);
-          return (
-            <circle key={i} cx={round3(star.x + Math.cos(rad) * r)} cy={round3(star.y + Math.sin(rad) * r)} r={0.7} fill="#666660" />
-          );
-        })}
-
-      {star.status === "DONE" ? (
-        (() => {
-          const rect = doneStarImageRect(star.x, star.y, star.radius, sizeTierForRadius(star.radius));
-          return (
-            <image
-              className="doit-star-reveal obs-star__body"
-              href={rect.href}
-              x={round3(rect.x)}
-              y={round3(rect.y)}
-              width={round3(rect.width)}
-              height={round3(rect.height)}
-            />
-          );
-        })()
-      ) : notStarted ? (
-        <circle className="obs-star__body" cx={star.x} cy={star.y} r={star.radius * 0.4} fill="#999992" fillOpacity={0.55} />
-      ) : (
-        <path className="obs-star__body obs-star__body--outline" d={sparkle} fill="none" stroke="#666660" strokeWidth={1} />
-      )}
-    </g>
-  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -720,7 +559,7 @@ export function Observatory({
             <circle cx={0} cy={0} r={isComplete ? 3.6 : 2} fill={isComplete ? "#11110F" : "none"} stroke="#11110F" strokeWidth={1} />
 
             {layout.stars.map((star) => (
-              <StarNode
+              <InteractiveStar
                 key={star.id}
                 star={star}
                 active={activeId === star.id}
@@ -760,7 +599,7 @@ export function Observatory({
               ref={panelRef}
               role={pinnedId !== null ? "dialog" : "tooltip"}
               aria-label={`${activeStar.title} 상세`}
-              className="obs-inspector absolute z-20 rounded-2xl border border-ink-900/15 bg-[#F5F5F1]/85 p-4 shadow-[0_12px_32px_-12px_rgba(17,17,15,0.35)] backdrop-blur-md backdrop-saturate-150"
+              className="obs-inspector absolute z-20 rounded-2xl p-4"
               style={{ left: panelPos.left, top: panelPos.top, width: PANEL_WIDTH }}
               onMouseEnter={() => {
                 if (hideTimer.current) window.clearTimeout(hideTimer.current);
@@ -771,7 +610,7 @@ export function Observatory({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <InspectorBody star={activeStar} index={indexById.get(activeStar.id) ?? 0} onClose={pinnedId !== null ? () => unpin(true) : undefined} />
+              <StarInspectorBody star={activeStar} index={indexById.get(activeStar.id) ?? 0} onClose={pinnedId !== null ? () => unpin(true) : undefined} />
             </div>
           )}
         </div>
@@ -825,7 +664,7 @@ export function Observatory({
             aria-label={`${activeStar.title} 상세`}
             className="obs-sheet fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border-t border-ink-900/15 bg-[#F5F5F1]/90 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-12px_32px_-12px_rgba(17,17,15,0.3)] backdrop-blur-md backdrop-saturate-150"
           >
-            <InspectorBody star={activeStar} index={indexById.get(activeStar.id) ?? 0} onClose={() => unpin(true)} />
+            <StarInspectorBody star={activeStar} index={indexById.get(activeStar.id) ?? 0} onClose={() => unpin(true)} />
           </div>
         </>
       )}
