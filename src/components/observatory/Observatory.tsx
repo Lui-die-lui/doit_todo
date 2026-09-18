@@ -184,7 +184,7 @@ function StarNode({
           r={star.radius + 3.2}
           fill="none"
           stroke="#666660"
-          strokeWidth={0.8}
+          strokeWidth={0.2}
           strokeDasharray="1.6 2.2"
         />
       )}
