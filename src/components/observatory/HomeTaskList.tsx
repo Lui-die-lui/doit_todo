@@ -117,7 +117,7 @@ export function HomeTaskList({
                     <TaskStatusBadge status={t.status} overdue={t.isOverdue} />
                     {t.tag && <span className="text-xs text-ink-400">#{t.tag}</span>}
                   </span>
-                  <span className={compact ? "break-words text-sm font-medium text-ink-900" : "break-words font-medium text-ink-900"}>
+                  <span className={compact ? "break-words text-xs font-medium text-ink-900" : "break-words font-medium text-ink-900"}>
                     {t.title}
                   </span>
                   {compact && (

@@ -9,6 +9,7 @@ import {
 import { buildConstellationTasks, computeConstellationLayout } from "@/lib/constellation";
 import { MiniConstellation } from "@/components/constellation/MiniConstellation";
 import { PriorityBadge } from "@/components/Badges";
+import { PlanExportImport } from "@/components/PlanExportImport";
 import { formatDateOnly, minutesToLabel, seoulTodayDateString } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
@@ -41,14 +42,17 @@ export default async function PlansPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="label-coord text-xs text-ink-400">PLAN / OBSERVATION LOG</h1>
           <h2 className="text-xl font-bold text-ink-900">계획</h2>
         </div>
-        <Link href="/plans/new" className="inline-flex bg-ink-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-85">
-          + 새 계획
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <PlanExportImport plans={plans} />
+          <Link href="/plans/new" className="inline-flex bg-ink-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-85">
+            + 새 계획
+          </Link>
+        </div>
       </div>
 
       {rows.length === 0 ? (

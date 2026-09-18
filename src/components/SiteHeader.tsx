@@ -48,12 +48,6 @@ export function SiteHeader() {
               </Link>
             );
           })}
-          <Link
-            href="/api/export"
-            className="label-coord ml-2 border border-line-strong px-3 py-1.5 text-[11px] text-ink-700 transition-colors hover:border-ink-900 hover:text-ink-900"
-          >
-            EXPORT
-          </Link>
         </nav>
       </div>
     </header>

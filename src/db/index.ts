@@ -20,6 +20,14 @@ const client =
   postgres(connectionString, {
     prepare: false,
     max: 5,
+    // Without these, a connection that can't be established (e.g. the shared Supabase
+    // pooler already at its connection cap) hangs the request indefinitely instead of
+    // failing into the existing try/catch error paths, and a dev-server restart that
+    // doesn't get a clean shutdown can otherwise leave connections open until Postgres's
+    // own (much longer) timeout reaps them.
+    connect_timeout: 10,
+    idle_timeout: 20,
+    max_lifetime: 60 * 30,
   });
 
 if (process.env.NODE_ENV !== "production") {

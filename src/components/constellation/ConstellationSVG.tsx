@@ -242,7 +242,7 @@ export function ConstellationSVG({
         {orbitDateLabels &&
           orbitDateLabels.map((iso, i) => (
             <text
-              key={iso}
+              key={i}
               x={2}
               y={-layout.orbitRadii[i] - 2}
               fontSize={4.5}

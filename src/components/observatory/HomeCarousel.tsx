@@ -59,27 +59,36 @@ export function HomeCarousel({ slides, initialIndex }: { slides: HomeSlide[]; in
         }}
       >
         {count > 1 && (
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => go(index - 1)}
-              aria-label="이전 계획 별자리 보기"
-              className="label-coord border border-line-strong px-3 py-1.5 text-[11px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
-            >
-              ‹ PREV
-            </button>
-            <p aria-live="polite" className="label-coord text-[10px] text-ink-400">
+          <>
+            {/* Mobile/tablet: the stage has no room to flank with buttons, so this stays a
+                plain text bar above the hero. Desktop swaps to glass buttons either side of
+                the constellation itself (inside Observatory) -- this collapses to just the
+                position readout, freeing the row for it. */}
+            <div className="flex items-center justify-between lg:hidden">
+              <button
+                type="button"
+                onClick={() => go(index - 1)}
+                aria-label="이전 계획 별자리 보기"
+                className="label-coord border border-line-strong px-3 py-1.5 text-[11px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
+              >
+                ‹ PREV
+              </button>
+              <p aria-live="polite" className="label-coord text-[10px] text-ink-400">
+                CONSTELLATION {String(index + 1).padStart(2, "0")} / {String(count).padStart(2, "0")}
+              </p>
+              <button
+                type="button"
+                onClick={() => go(index + 1)}
+                aria-label="다음 계획 별자리 보기"
+                className="label-coord border border-line-strong px-3 py-1.5 text-[11px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
+              >
+                NEXT ›
+              </button>
+            </div>
+            <p aria-live="polite" className="label-coord hidden text-center text-[10px] text-ink-400 lg:block">
               CONSTELLATION {String(index + 1).padStart(2, "0")} / {String(count).padStart(2, "0")}
             </p>
-            <button
-              type="button"
-              onClick={() => go(index + 1)}
-              aria-label="다음 계획 별자리 보기"
-              className="label-coord border border-line-strong px-3 py-1.5 text-[11px] text-ink-700 hover:border-ink-900 hover:text-ink-900"
-            >
-              NEXT ›
-            </button>
-          </div>
+          </>
         )}
 
         <Observatory
@@ -94,6 +103,9 @@ export function HomeCarousel({ slides, initialIndex }: { slides: HomeSlide[]; in
           estimatedMinutesTotal={slide.estimatedMinutesTotal}
           actualMinutesTotal={slide.actualMinutesTotal}
           diffMinutes={slide.diffMinutes}
+          canNavigate={count > 1}
+          onPrev={() => go(index - 1)}
+          onNext={() => go(index + 1)}
         />
       </div>
 

@@ -15,8 +15,42 @@ import { StatCard } from "@/components/StatCard";
 import { ReflectionForm } from "@/components/ReflectionForm";
 import { inputClassName } from "@/components/FormField";
 import { ConstellationCard } from "@/components/constellation/ConstellationCard";
+import type { RetroAggregation } from "@/lib/aggregations";
 
 export const dynamic = "force-dynamic";
+
+/** The aggregation stat grid + diff row -- shared by the standalone full-width section (mobile/
+ * tablet) and the version embedded into the left column below the plan summary card (desktop,
+ * where it fills the space left over next to the taller constellation card). */
+function AggregationCards({
+  scopeParam,
+  aggregation,
+  compact = false,
+}: {
+  scopeParam: string;
+  aggregation: RetroAggregation;
+  compact?: boolean;
+}) {
+  return (
+    <>
+      <div className={`grid gap-px border border-line bg-line ${compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"}`}>
+        <StatCard href={`/see/evidence?scope=${scopeParam}&metric=planned`} label="계획된 할 일" value={`${aggregation.plannedCount}건`} />
+        <StatCard href={`/see/evidence?scope=${scopeParam}&metric=done`} label="완료" value={`${aggregation.doneCount}건`} />
+        <StatCard href={`/see/evidence?scope=${scopeParam}&metric=overdue`} label="지연" value={`${aggregation.overdueCount}건`} />
+        <StatCard href={`/see/evidence?scope=${scopeParam}&metric=blocked`} label="막힘" value={`${aggregation.blockedCount}건`} />
+        <StatCard href={`/see/evidence?scope=${scopeParam}&metric=estimated`} label="예상 시간" value={minutesToLabel(aggregation.estimatedMinutesTotal)} />
+        <StatCard href={`/see/evidence?scope=${scopeParam}&metric=actual`} label="실제 시간" value={minutesToLabel(aggregation.actualMinutesTotal)} />
+      </div>
+      <div className="flex items-center justify-between border border-line bg-surface-muted px-4 py-3 text-sm">
+        <span className="label-coord text-[10px] text-ink-400">차이 (실제 − 예상)</span>
+        <span className="font-mono font-semibold text-ink-900">
+          {aggregation.diffMinutes > 0 ? "+" : ""}
+          {minutesToLabel(aggregation.diffMinutes)}
+        </span>
+      </div>
+    </>
+  );
+}
 
 export default async function SeePage({
   searchParams,
@@ -126,26 +160,40 @@ export default async function SeePage({
 
       {scope.type === "plan" && scopePlan && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr] lg:items-start">
-          <dl className="flex flex-col gap-4 border border-line bg-surface p-5">
-            <div>
-              <dt className="label-coord text-[10px] text-ink-400">STATUS · 현재 상태</dt>
-              <dd className="text-sm font-medium text-ink-900">
-                {isComplete
-                  ? "CONSTELLATION COMPLETE — 모든 할 일 완료"
-                  : `진행 중 · ${aggregation.doneCount} / ${aggregation.plannedCount} 완료`}
-              </dd>
-            </div>
-            <div>
-              <dt className="label-coord text-[10px] text-ink-400">PERIOD · PRIORITY</dt>
-              <dd className="font-mono text-sm text-ink-900">
-                {formatDateOnly(scopePlan.startDate)} – {formatDateOnly(scopePlan.endDate)} · {priorityLabels[scopePlan.priority]}
-              </dd>
-            </div>
-            <div>
-              <dt className="label-coord text-[10px] text-ink-400">SUCCESS CRITERIA · 성공 기준</dt>
-              <dd className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-700">{scopePlan.successCriteria}</dd>
-            </div>
-          </dl>
+          <div className="flex flex-col gap-6">
+            <dl className="flex flex-col gap-4 border border-line bg-surface p-5">
+              <div>
+                <dt className="label-coord text-[10px] text-ink-400">STATUS · 현재 상태</dt>
+                <dd className="text-sm font-medium text-ink-900">
+                  {isComplete
+                    ? "CONSTELLATION COMPLETE — 모든 할 일 완료"
+                    : `진행 중 · ${aggregation.doneCount} / ${aggregation.plannedCount} 완료`}
+                </dd>
+              </div>
+              <div>
+                <dt className="label-coord text-[10px] text-ink-400">PERIOD · PRIORITY</dt>
+                <dd className="font-mono text-sm text-ink-900">
+                  {formatDateOnly(scopePlan.startDate)} – {formatDateOnly(scopePlan.endDate)} · {priorityLabels[scopePlan.priority]}
+                </dd>
+              </div>
+              <div>
+                <dt className="label-coord text-[10px] text-ink-400">SUCCESS CRITERIA · 성공 기준</dt>
+                <dd className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-700">{scopePlan.successCriteria}</dd>
+              </div>
+            </dl>
+
+            {/* Aggregation, embedded here on desktop -- fills the space the summary card
+                leaves empty next to the taller constellation card. The standalone full-width
+                version below (`agg-heading`) covers mobile/tablet, where this column isn't
+                beside anything taller. */}
+            <section aria-labelledby="agg-heading-desktop" className="hidden flex-col gap-3 lg:flex">
+              <h2 id="agg-heading-desktop" className="label-coord text-[10px] text-ink-400">
+                집계 · 카드를 누르면 근거 기록으로 이동합니다
+              </h2>
+              <AggregationCards scopeParam={scopeParam} aggregation={aggregation} compact />
+            </section>
+          </div>
+
           <ConstellationCard
             coord="SEE / SELECTED PLAN"
             planTitle={scopePlan.title}
@@ -159,25 +207,14 @@ export default async function SeePage({
         </div>
       )}
 
-      <section aria-labelledby="agg-heading" className="flex flex-col gap-3">
+      <section
+        aria-labelledby="agg-heading"
+        className={`flex flex-col gap-3 ${scope.type === "plan" && scopePlan ? "lg:hidden" : ""}`}
+      >
         <h2 id="agg-heading" className="label-coord text-[10px] text-ink-400">
           집계 · 카드를 누르면 근거 기록으로 이동합니다
         </h2>
-        <div className="grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-3">
-          <StatCard href={`/see/evidence?scope=${scopeParam}&metric=planned`} label="계획된 할 일" value={`${aggregation.plannedCount}건`} />
-          <StatCard href={`/see/evidence?scope=${scopeParam}&metric=done`} label="완료" value={`${aggregation.doneCount}건`} />
-          <StatCard href={`/see/evidence?scope=${scopeParam}&metric=overdue`} label="지연" value={`${aggregation.overdueCount}건`} />
-          <StatCard href={`/see/evidence?scope=${scopeParam}&metric=blocked`} label="막힘" value={`${aggregation.blockedCount}건`} />
-          <StatCard href={`/see/evidence?scope=${scopeParam}&metric=estimated`} label="예상 시간" value={minutesToLabel(aggregation.estimatedMinutesTotal)} />
-          <StatCard href={`/see/evidence?scope=${scopeParam}&metric=actual`} label="실제 시간" value={minutesToLabel(aggregation.actualMinutesTotal)} />
-        </div>
-        <div className="flex items-center justify-between border border-line bg-surface-muted px-4 py-3 text-sm">
-          <span className="label-coord text-[10px] text-ink-400">차이 (실제 − 예상)</span>
-          <span className="font-mono font-semibold text-ink-900">
-            {aggregation.diffMinutes > 0 ? "+" : ""}
-            {minutesToLabel(aggregation.diffMinutes)}
-          </span>
-        </div>
+        <AggregationCards scopeParam={scopeParam} aggregation={aggregation} />
       </section>
 
       {carried && carried.carriedPlanId && (

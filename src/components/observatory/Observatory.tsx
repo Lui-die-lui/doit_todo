@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { MdNavigateBefore, MdNavigateNext } from "react-icons/md";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import type { ConstellationLayout, ConstellationStar } from "@/lib/constellation";
 import { describeStar, sizeTierForRadius } from "@/lib/constellation";
 import { formatDateOnly, formatDateTimeSeoul, minutesToLabel, minutesToMonoLabel } from "@/lib/date";
@@ -230,6 +239,9 @@ export function Observatory({
   estimatedMinutesTotal,
   actualMinutesTotal,
   diffMinutes,
+  canNavigate = false,
+  onPrev,
+  onNext,
 }: {
   plan: ObservatoryPlan;
   layout: ConstellationLayout;
@@ -241,11 +253,17 @@ export function Observatory({
   estimatedMinutesTotal: number;
   actualMinutesTotal: number;
   diffMinutes: number;
+  /** Whether more than one plan is in the carousel -- gates the desktop flanking nav buttons. */
+  canNavigate?: boolean;
+  onPrev?: () => void;
+  onNext?: () => void;
 }) {
   const [hoverId, setHoverId] = useState<number | null>(null);
   const [pinnedId, setPinnedId] = useState<number | null>(null);
   const [panelPos, setPanelPos] = useState<PanelPosition | null>(null);
   const [isCoarse, setIsCoarse] = useState(false);
+  const [taskPanelMaxH, setTaskPanelMaxH] = useState<number | null>(null);
+  const [doSeeMaxH, setDoSeeMaxH] = useState<number | null>(null);
 
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -256,6 +274,10 @@ export function Observatory({
   const starRefs = useRef(new Map<number, SVGGElement>());
   const showTimer = useRef<number | null>(null);
   const hideTimer = useRef<number | null>(null);
+  const taskPanelRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const doSeeRef = useRef<HTMLDivElement>(null);
+  const statsRef = useRef<HTMLDListElement>(null);
 
   const activeId = pinnedId ?? hoverId;
   const activeStar = activeId !== null ? layout.stars.find((s) => s.id === activeId) ?? null : null;
@@ -269,6 +291,27 @@ export function Observatory({
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
+
+  /* --- desktop corner panels: clamp each to the actual pixel gap before the
+     bottom-anchored corner below it, instead of guessing with a vh fraction --
+     a short/ultrawide window can leave far less room than a typical 16:9 one. */
+  useLayoutEffect(() => {
+    const GAP = 24;
+    const recompute = () => {
+      if (window.innerWidth < 1024) return;
+      if (taskPanelRef.current && actionsRef.current) {
+        const room = actionsRef.current.getBoundingClientRect().top - taskPanelRef.current.getBoundingClientRect().top - GAP;
+        setTaskPanelMaxH(Math.max(80, room));
+      }
+      if (doSeeRef.current && statsRef.current) {
+        const room = statsRef.current.getBoundingClientRect().top - doSeeRef.current.getBoundingClientRect().top - GAP;
+        setDoSeeMaxH(Math.max(80, room));
+      }
+    };
+    recompute();
+    window.addEventListener("resize", recompute);
+    return () => window.removeEventListener("resize", recompute);
+  }, [taskRows.length, recentLogs.length]);
 
   /* --- timers --- */
   const clearTimers = useCallback(() => {
@@ -431,52 +474,67 @@ export function Observatory({
     >
       <div className="relative mx-auto flex min-h-[calc(100svh-8.5rem)] max-w-[1920px] flex-col px-5 pb-5 pt-6 sm:px-8 lg:block lg:pb-0 lg:pt-0">
         {/* ---------- top-left: plan ---------- */}
-        <div className="order-1 max-w-md lg:absolute lg:left-8 lg:top-8 lg:z-10 lg:w-[22rem] lg:max-w-[22rem] lg:pointer-events-none">
+        <div className="order-1 max-w-md lg:absolute lg:left-8 lg:top-0 lg:z-10 lg:w-[22rem] lg:max-w-[22rem] lg:pointer-events-none">
           <p className="label-coord text-[10px] text-ink-400">CURRENT CONSTELLATION / {pad2(plan.id)}</p>
-          <h1 id="observatory-title" className="mt-1 break-words text-2xl font-bold leading-tight tracking-tight text-ink-900 sm:text-3xl">
+          <h1
+            id="observatory-title"
+            className="mt-1 break-words text-2xl font-bold leading-tight tracking-tight text-ink-900 sm:text-3xl lg:text-xl"
+          >
             {plan.title}
           </h1>
-          <p className="mt-2 font-mono text-xs text-ink-500">
+          <p className="mt-2 font-mono text-xs text-ink-500 lg:mt-1 lg:text-[11px]">
             {formatDateOnly(plan.startDate)} — {formatDateOnly(plan.endDate)} · {priorityLabels[plan.priority]}
           </p>
-          <p className="mt-3 line-clamp-3 max-w-xs text-sm leading-relaxed text-ink-700">{plan.successCriteria}</p>
-          <div className="mt-3 h-px w-12 bg-ink-900" aria-hidden="true" />
-          <p className="mt-2 font-mono text-xs text-ink-500">
+          <p className="mt-3 line-clamp-3 max-w-xs text-sm leading-relaxed text-ink-700 lg:mt-1.5 lg:text-xs">
+            {plan.successCriteria}
+          </p>
+          <div className="mt-3 h-px w-12 bg-ink-900 lg:mt-2" aria-hidden="true" />
+          <p className="mt-2 font-mono text-xs text-ink-500 lg:mt-1.5 lg:text-[11px]">
             EST. {minutesToMonoLabel(plan.estimatedMinutes)} · 예상 {minutesToLabel(plan.estimatedMinutes)}
           </p>
           <p className="mt-1 label-coord text-[11px] text-ink-900">
             {isComplete ? "CONSTELLATION COMPLETE" : `${pad2(stats.done)} / ${pad2(stats.planned)} STARS LIT`}
           </p>
 
-          {/* Task list, embedded as a glass panel below the fold-fold-free hero (desktop only --
+          {/* Task list, embedded as a glass panel below the fold-free hero (desktop only --
               on mobile the hero stacks vertically already, so the full-width section below still
-              carries it). Internal scroll keeps an arbitrary task count from pushing the hero's
-              height past the viewport. */}
-          <div className="obs-task-panel pointer-events-auto mt-4 hidden overflow-hidden rounded-2xl border border-ink-900/15 bg-[#F5F5F1]/80 shadow-[0_12px_32px_-12px_rgba(17,17,15,0.3)] backdrop-blur-md backdrop-saturate-150 lg:block">
-            <div className="flex items-baseline justify-between border-b border-ink-900/10 px-4 pb-2 pt-3">
+              carries it). Its scroll area is clamped to the measured gap above the bottom-left
+              buttons (see the resize effect above) so it can never overlap them, whatever the
+              window's height or aspect ratio. */}
+          <div
+            ref={taskPanelRef}
+            className="obs-task-panel pointer-events-auto mt-4 hidden flex-col overflow-hidden rounded-2xl border border-ink-900/15 bg-[#F5F5F1]/80 shadow-[0_12px_32px_-12px_rgba(17,17,15,0.3)] backdrop-blur-md backdrop-saturate-150 lg:mt-3 lg:flex"
+            style={{ height: taskPanelMaxH ?? 240 }}
+          >
+            <div className="flex shrink-0 items-baseline justify-between border-b border-ink-900/10 px-4 pb-2 pt-3">
               <h2 className="label-coord text-[10px] text-ink-900">TASKS / 할 일 ({taskRows.length})</h2>
               <Link href="/tasks" className="label-coord text-[9px] text-ink-400 hover:text-ink-900">
                 전체 →
               </Link>
             </div>
-            <div className="max-h-[min(32vh,280px)] overflow-y-auto px-3 pb-3 pt-2">
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2">
               <HomeTaskList tasks={taskRows} planId={plan.id} compact />
             </div>
           </div>
         </div>
 
         {/* ---------- top-right: observer (reserved for future account info) ---------- */}
-        <div className="order-5 mt-4 border-t border-line pt-2 text-right lg:absolute lg:right-8 lg:top-8 lg:z-10 lg:mt-0 lg:w-72 lg:border-0 lg:pt-0 lg:pointer-events-none">
+        <div className="order-5 mt-4 border-t border-line pt-2 text-right lg:absolute lg:right-8 lg:top-0 lg:z-10 lg:mt-0 lg:w-72 lg:border-0 lg:pt-0 lg:pointer-events-none">
           <p className="label-coord text-[10px] text-ink-400">PUBLIC OBSERVATORY</p>
           <p className="mt-1 label-coord text-[11px] text-ink-900">GUEST VIEW</p>
-          <p className="ml-auto mt-1 max-w-[16rem] text-xs leading-relaxed text-ink-500">
+          <p className="ml-auto mt-1 max-w-[16rem] text-xs leading-relaxed text-ink-500 lg:text-[11px]">
             로그인 없이 공개된 기록입니다. 링크가 있는 누구나 볼 수 있어요.
           </p>
 
           {/* DO + SEE preview, plain (no glass panel) -- fills the empty vertical space between
               the observer text and the bottom-right stat readout, desktop only. Mirrors the
-              full-width DO/SEE section below, which stays for mobile/tablet. */}
-          <div className="pointer-events-auto mt-8 hidden text-left lg:block">
+              full-width DO/SEE section below, which stays for mobile/tablet. Clamped + scrollable
+              to the measured gap above the stats readout, same as the task panel on the left. */}
+          <div
+            ref={doSeeRef}
+            className="pointer-events-auto mt-8 hidden overflow-y-auto text-left lg:mt-5 lg:block"
+            style={{ maxHeight: doSeeMaxH ?? 420 }}
+          >
             <div className="flex items-baseline justify-between border-b border-ink-900 pb-2">
               <h2 className="label-coord text-[11px] text-ink-900">DO / 최근 실행 기록</h2>
               <Link href="/do" className="label-coord text-[10px] text-ink-500 hover:text-ink-900">
@@ -484,22 +542,24 @@ export function Observatory({
               </Link>
             </div>
             {recentLogs.length === 0 ? (
-              <p className="mt-3 text-xs text-ink-400">아직 실행 기록이 없습니다.</p>
+              <p className="mt-3 text-xs text-ink-400 lg:text-[11px]">아직 실행 기록이 없습니다.</p>
             ) : (
               <ul className="flex flex-col border-l border-line-strong pl-4">
                 {recentLogs.slice(0, 3).map((log) => (
-                  <li key={log.id} className="relative border-b border-line py-2.5 text-sm last:border-b-0">
+                  <li key={log.id} className="relative border-b border-line py-2.5 text-sm last:border-b-0 lg:py-2 lg:text-xs">
                     <span
                       aria-hidden="true"
                       className="absolute -left-[18.5px] top-[0.95rem] h-1.5 w-1.5 rounded-full border border-ink-900 bg-surface"
                     />
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                      <span className="font-mono text-[11px] text-ink-900">
+                      <span className="font-mono text-[11px] text-ink-900 lg:text-[10px]">
                         {formatDateTimeSeoul(log.startAt)} – {formatDateTimeSeoul(log.endAt).slice(11)}
                       </span>
-                      <span className="font-mono text-xs font-semibold text-ink-900">{minutesToLabel(log.actualMinutes)}</span>
+                      <span className="font-mono text-xs font-semibold text-ink-900 lg:text-[11px]">
+                        {minutesToLabel(log.actualMinutes)}
+                      </span>
                     </div>
-                    <p className="mt-0.5 truncate text-xs text-ink-700">
+                    <p className="mt-0.5 truncate text-xs text-ink-700 lg:text-[11px]">
                       <Link href={`/tasks/${log.taskId}`} className="underline underline-offset-2">
                         {log.taskTitle}
                       </Link>
@@ -509,10 +569,10 @@ export function Observatory({
               </ul>
             )}
 
-            <div className="mt-6 border-b border-ink-900 pb-2">
+            <div className="mt-6 border-b border-ink-900 pb-2 lg:mt-4">
               <h2 className="label-coord text-[11px] text-ink-900">SEE / 예상 대 실제</h2>
             </div>
-            <dl className="mt-2 flex flex-col gap-1.5 font-mono text-xs">
+            <dl className="mt-2 flex flex-col gap-1.5 font-mono text-xs lg:text-[11px]">
               <div className="flex justify-between gap-4">
                 <dt className="label-coord text-[10px] text-ink-400">EST.</dt>
                 <dd className="text-ink-900">{minutesToLabel(estimatedMinutesTotal)}</dd>
@@ -539,13 +599,30 @@ export function Observatory({
         </div>
 
         {/* ---------- center: the star field (page background, no card) ---------- */}
+        {/* lg:pl/pr reserve exactly the space the absolutely-positioned corners claim
+            (left-8 + 22rem, right-8 + 18rem -- see those blocks above) so the flanking nav
+            buttons below, centered within this box, never land underneath them. */}
         <div
           ref={stageRef}
-          className="relative order-2 mx-auto mt-6 w-full max-w-[min(92vw,calc(100svh-14rem))] lg:mt-0 lg:flex lg:min-h-[calc(100svh-8.5rem)] lg:max-w-none lg:items-center lg:justify-center"
+          className="relative order-2 mx-auto mt-6 w-full max-w-[min(92vw,calc(100svh-14rem))] lg:mt-0 lg:flex lg:min-h-[calc(100svh-8.5rem)] lg:max-w-none lg:items-center lg:justify-center lg:pl-[24rem] lg:pr-[20rem]"
           onClick={() => {
             if (pinnedId !== null) unpin(false);
           }}
         >
+          {canNavigate && onPrev && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPrev();
+              }}
+              aria-label="이전 계획 별자리 보기"
+              className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full border border-ink-900/15 bg-[#F5F5F1]/70 text-ink-700 shadow-[0_8px_24px_-10px_rgba(17,17,15,0.35)] backdrop-blur-md backdrop-saturate-150 transition-colors hover:bg-[#E4E4DD] hover:text-ink-900 focus:outline-none focus-visible:bg-[#E4E4DD] focus-visible:text-ink-900 lg:flex"
+            >
+              <MdNavigateBefore aria-hidden="true" size={26} />
+            </button>
+          )}
+
           <svg
             ref={svgRef}
             viewBox={`-${VIEW} -${VIEW} ${VIEW * 2} ${VIEW * 2}`}
@@ -592,7 +669,7 @@ export function Observatory({
                 <circle key={r} cx={0} cy={0} r={r} fill="none" stroke="#E8E8E2" strokeWidth={0.5} strokeDasharray={i === 2 ? "1 5" : "1 3.5"} />
               ))}
               {orbitDateLabels.map((iso, i) => (
-                <text key={iso} x={2} y={-layout.orbitRadii[i] - 2} fontSize={4.5} fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#999992">
+                <text key={i} x={2} y={-layout.orbitRadii[i] - 2} fontSize={4.5} fontFamily="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#999992">
                   {shortDate(iso)}
                 </text>
               ))}
@@ -659,6 +736,20 @@ export function Observatory({
             ))}
           </svg>
 
+          {canNavigate && onNext && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNext();
+              }}
+              aria-label="다음 계획 별자리 보기"
+              className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full border border-ink-900/15 bg-[#F5F5F1]/70 text-ink-700 shadow-[0_8px_24px_-10px_rgba(17,17,15,0.35)] backdrop-blur-md backdrop-saturate-150 transition-colors hover:bg-[#E4E4DD] hover:text-ink-900 focus:outline-none focus-visible:bg-[#E4E4DD] focus-visible:text-ink-900 lg:flex"
+            >
+              <MdNavigateNext aria-hidden="true" size={26} />
+            </button>
+          )}
+
           {/* ---------- floating inspector (desktop) ---------- */}
           {activeStar && panelPos && !isCoarse && (
             <div
@@ -682,7 +773,7 @@ export function Observatory({
         </div>
 
         {/* ---------- bottom-left: primary actions ---------- */}
-        <div className="order-4 mt-6 flex flex-wrap gap-2 lg:absolute lg:bottom-8 lg:left-8 lg:z-10 lg:mt-0">
+        <div ref={actionsRef} className="order-4 mt-6 flex flex-wrap gap-2 lg:absolute lg:bottom-8 lg:left-8 lg:z-10 lg:mt-0">
           <Link href="/do" className="inline-flex items-center gap-2 rounded-sm bg-ink-900 px-4 py-2.5 text-sm font-medium text-white hover:opacity-90">
             실행 기록 남기기 <span aria-hidden="true">→</span>
           </Link>
@@ -692,7 +783,10 @@ export function Observatory({
         </div>
 
         {/* ---------- bottom-right: observation readout (each value links to its evidence) ---------- */}
-        <dl className="order-3 mt-6 grid grid-cols-2 gap-x-6 gap-y-2 font-mono text-xs sm:flex sm:flex-wrap sm:gap-x-8 lg:absolute lg:bottom-8 lg:right-8 lg:z-10 lg:mt-0 lg:flex-col lg:items-end lg:gap-y-1.5 lg:text-right">
+        <dl
+          ref={statsRef}
+          className="order-3 mt-6 grid grid-cols-2 gap-x-6 gap-y-2 font-mono text-xs sm:flex sm:flex-wrap sm:gap-x-8 lg:absolute lg:bottom-8 lg:right-8 lg:z-10 lg:mt-0 lg:flex-col lg:items-end lg:gap-y-1.5 lg:text-right"
+        >
           {(
             [
               { key: "done", label: "LIT", value: `${pad2(stats.done)} / ${pad2(stats.planned)}` },

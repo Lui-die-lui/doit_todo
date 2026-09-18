@@ -11,8 +11,8 @@ export default async function NewPlanPage({
   const params = await searchParams;
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
-      <div>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+      <div className="text-center">
         <h1 className="label-coord text-xs text-ink-400">PLAN / NEW</h1>
         <h2 className="text-xl font-bold text-ink-900">새 계획 만들기</h2>
       </div>

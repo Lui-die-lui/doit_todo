@@ -16,12 +16,12 @@ export default async function EditPlanPage({ params }: { params: Promise<{ id: s
   const boundAction = revisePlanAction.bind(null, planId);
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
-      <div>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+      <div className="text-center">
         <h1 className="label-coord text-xs text-ink-400">PLAN / EDIT</h1>
         <h2 className="text-xl font-bold text-ink-900">계획 수정</h2>
       </div>
-      <p className="text-sm text-ink-500">
+      <p className="text-center text-sm text-ink-500">
         수정 전 내용은 자동으로 수정 이력에 보존됩니다. 수정 이유를 함께 입력해주세요.
       </p>
       <PlanForm

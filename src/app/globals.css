@@ -4,6 +4,12 @@
 
 html {
   color-scheme: light;
+}
+
+/* scrollbar-width/-color aren't inherited, so declaring them on html alone leaves nested
+   scroll containers (the observatory's task/DO-SEE panels, any future overflow-y-auto box)
+   on the browser's default wide scrollbar in Firefox. Apply to every element instead. */
+* {
   scrollbar-width: thin;
   scrollbar-color: #d2d2cb transparent;
 }

@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import type { ActionState } from "@/lib/action-state";
 import { minutesToHm } from "@/lib/date";
 import { priorityLabels, priorityValues, type PlanInput } from "@/lib/validation";
 import { FormField, inputClassName } from "@/components/FormField";
 import { HourMinuteField } from "@/components/HourMinuteField";
 import { SubmitButton } from "@/components/SubmitButton";
+import { PLAN_IMPORT_STORAGE_KEY, parsePlanExportJson } from "@/lib/plan-export";
 
 type PlanFormAction = (
   prevState: ActionState<keyof PlanInput | "reason">,
@@ -26,10 +27,36 @@ export function PlanForm({
 }) {
   const [state, formAction] = useActionState(action, { status: "idle" });
   const errors = state.fieldErrors ?? {};
-  const { hours: defaultHours, minutes: defaultMinutesPart } = minutesToHm(defaultValues?.estimatedMinutes);
+
+  // A plan imported from a JSON file (see PlanExportImport) hands off through sessionStorage
+  // rather than the URL, since a plan's success criteria/description can run long. Only
+  // "create" reads it -- re-mounting an in-progress edit from a stray import would be
+  // surprising. The `key` below forces a fresh mount once it arrives, so these still-uncontrolled
+  // inputs pick up their new defaultValue cleanly instead of needing to be poked via refs.
+  const [imported, setImported] = useState<Partial<PlanInput> | null>(null);
+  useEffect(() => {
+    if (mode !== "create") return;
+    const raw = sessionStorage.getItem(PLAN_IMPORT_STORAGE_KEY);
+    if (!raw) return;
+    sessionStorage.removeItem(PLAN_IMPORT_STORAGE_KEY);
+    const parsed = parsePlanExportJson(raw);
+    if (parsed) setImported(parsed);
+  }, [mode]);
+
+  const effectiveDefaults = imported ?? defaultValues;
+  const { hours: defaultHours, minutes: defaultMinutesPart } = minutesToHm(effectiveDefaults?.estimatedMinutes);
 
   return (
-    <form action={formAction} className="flex flex-col gap-6 border border-line bg-surface p-5 sm:p-7">
+    <form
+      key={imported ? "imported" : "fresh"}
+      action={formAction}
+      className="flex flex-col gap-6 border border-line bg-surface p-5 sm:p-7"
+    >
+      {imported && (
+        <p className="border border-line-strong bg-surface-muted px-3 py-2 text-sm text-ink-700">
+          가져온 계획 데이터로 채워졌습니다. 내용을 확인하고 수정한 뒤 저장하세요.
+        </p>
+      )}
       {hiddenFields &&
         Object.entries(hiddenFields).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />
@@ -39,7 +66,7 @@ export function PlanForm({
         <input
           id="title"
           name="title"
-          defaultValue={defaultValues?.title}
+          defaultValue={effectiveDefaults?.title}
           maxLength={200}
           required
           placeholder="예: 정보처리기사 실기 재도전 준비"
@@ -51,7 +78,7 @@ export function PlanForm({
         <textarea
           id="description"
           name="description"
-          defaultValue={defaultValues?.description ?? ""}
+          defaultValue={effectiveDefaults?.description ?? ""}
           maxLength={5000}
           rows={4}
           className={`${inputClassName} resize-y`}
@@ -64,7 +91,7 @@ export function PlanForm({
             id="startDate"
             name="startDate"
             type="date"
-            defaultValue={defaultValues?.startDate}
+            defaultValue={effectiveDefaults?.startDate}
             required
             className={inputClassName}
           />
@@ -74,7 +101,7 @@ export function PlanForm({
             id="endDate"
             name="endDate"
             type="date"
-            defaultValue={defaultValues?.endDate}
+            defaultValue={effectiveDefaults?.endDate}
             required
             className={inputClassName}
           />
@@ -85,7 +112,7 @@ export function PlanForm({
         <select
           id="priority"
           name="priority"
-          defaultValue={defaultValues?.priority ?? "MEDIUM"}
+          defaultValue={effectiveDefaults?.priority ?? "MEDIUM"}
           required
           className={inputClassName}
         >
@@ -107,7 +134,7 @@ export function PlanForm({
         <textarea
           id="successCriteria"
           name="successCriteria"
-          defaultValue={defaultValues?.successCriteria}
+          defaultValue={effectiveDefaults?.successCriteria}
           maxLength={2000}
           rows={3}
           required
@@ -121,8 +148,8 @@ export function PlanForm({
         idPrefix="plan-estimated"
         hoursName="estimatedHours"
         minutesName="estimatedMinutesPart"
-        defaultHours={defaultValues?.estimatedMinutes !== undefined ? defaultHours : undefined}
-        defaultMinutes={defaultValues?.estimatedMinutes !== undefined ? defaultMinutesPart : undefined}
+        defaultHours={effectiveDefaults?.estimatedMinutes !== undefined ? defaultHours : undefined}
+        defaultMinutes={effectiveDefaults?.estimatedMinutes !== undefined ? defaultMinutesPart : undefined}
         hint="이 계획을 완료하는 데 실제로 투입할 것으로 예상하는 시간"
         error={errors.estimatedMinutes}
       />
@@ -137,7 +164,7 @@ export function PlanForm({
           <textarea
             id="carriedImprovement"
             name="carriedImprovement"
-            defaultValue={defaultValues?.carriedImprovement ?? ""}
+            defaultValue={effectiveDefaults?.carriedImprovement ?? ""}
             maxLength={2000}
             rows={2}
             placeholder="이전 돌아보기에서 넘어온 개선점입니다. 없다면 비워두세요."
