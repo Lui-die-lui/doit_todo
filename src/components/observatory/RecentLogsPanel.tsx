@@ -11,8 +11,8 @@ export type HomeRecentLog = {
   blockerReason: string | null;
 };
 
-/** "DO / 최근 실행 기록". `compact` is the plain desktop corner preview (3 logs, no
- * blocker note); the default is the full-width mobile/tablet section. */
+/** "DO / 최근 실행 기록". `compact` is the plain desktop corner preview (no blocker
+ * note); the default is the full-width mobile/tablet section. */
 export function RecentLogsPanel({
   logs,
   compact = false,
@@ -42,7 +42,7 @@ export function RecentLogsPanel({
         )
       ) : (
         <ul className="flex flex-col border-l border-line-strong pl-4">
-          {(compact ? logs.slice(0, 3) : logs).map((log) => (
+          {logs.map((log) => (
             <li
               key={log.id}
               className={

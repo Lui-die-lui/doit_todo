@@ -35,18 +35,20 @@ function buildHomeSlide(
   const orbitDateLabels = getOrbitBoundaryDates(plan.startDate, plan.endDate);
 
   const actualByTask = new Map(constellationTasks.map((t) => [t.id, t.actualMinutesTotal]));
-  const taskRows: HomeTaskRow[] = tasks.map((t) => ({
-    id: t.id,
-    title: t.title,
-    status: t.status,
-    priority: t.priority,
-    tag: t.tag,
-    dueDate: t.dueDate,
-    estimatedMinutes: t.estimatedMinutes,
-    actualMinutes: actualByTask.get(t.id) ?? 0,
-    createdAt: new Date(t.createdAt).toISOString(),
-    isOverdue: isOverdue(t.dueDate, t.status, today),
-  }));
+  const taskRows: HomeTaskRow[] = tasks
+    .filter((t) => t.status !== "DONE")
+    .map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      tag: t.tag,
+      dueDate: t.dueDate,
+      estimatedMinutes: t.estimatedMinutes,
+      actualMinutes: actualByTask.get(t.id) ?? 0,
+      createdAt: new Date(t.createdAt).toISOString(),
+      isOverdue: isOverdue(t.dueDate, t.status, today),
+    }));
 
   const taskTitleById = new Map(tasks.map((t) => [t.id, t.title]));
   const recentLogs = [...workLogs]

@@ -20,9 +20,7 @@ export type HomeTaskRow = {
   isOverdue: boolean;
 };
 
-type StatusFilter = "ALL" | "TODO" | "DONE" | "OVERDUE";
-
-/** Accessible list twin of the star field: same tasks, plain rows, client-side search/filter/sort.
+/** Accessible list twin of the star field: same tasks, plain rows, client-side sort.
  * `compact` trims padding and drops the due/est-actual side column, for use inside the narrow
  * glass panel embedded in the observatory hero (vs. the full-width section below it). */
 export function HomeTaskList({
@@ -34,59 +32,26 @@ export function HomeTaskList({
   planId: number;
   compact?: boolean;
 }) {
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("ALL");
   const [sort, setSort] = useState<SortOption>("default");
 
-  const rows = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    const filtered = tasks.filter((t) => {
-      if (needle && !t.title.toLowerCase().includes(needle)) return false;
-      if (status === "TODO" && t.status !== "TODO") return false;
-      if (status === "DONE" && t.status !== "DONE") return false;
-      if (status === "OVERDUE" && !t.isOverdue) return false;
-      return true;
-    });
-    return [...filtered].sort(getTaskComparator(sort));
-  }, [tasks, q, status, sort]);
+  const rows = useMemo(() => [...tasks].sort(getTaskComparator(sort)), [tasks, sort]);
 
   return (
     <div className={compact ? "flex flex-col gap-2.5" : "flex flex-col gap-4"}>
       <form
-        className={compact ? "flex flex-col gap-2" : "flex flex-col gap-3 sm:flex-row sm:items-end"}
+        className={compact ? "flex flex-col gap-2" : "flex flex-col gap-1 sm:ml-auto sm:w-48"}
         onSubmit={(e) => e.preventDefault()}
       >
-        <div className="flex flex-1 flex-col gap-1">
-          <label htmlFor="home-q" className={compact ? "sr-only" : "text-xs font-medium text-ink-500"}>
-            검색
-          </label>
-          <input id="home-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="할 일 제목" className={inputClassName} />
-        </div>
-        <div className={compact ? "flex gap-2" : "flex flex-col gap-1"}>
-          <div className="flex flex-1 flex-col gap-1">
-            <label htmlFor="home-status" className={compact ? "sr-only" : "text-xs font-medium text-ink-500"}>
-              상태
-            </label>
-            <select id="home-status" value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)} className={inputClassName}>
-              <option value="ALL">전체</option>
-              <option value="TODO">진행 중</option>
-              <option value="DONE">완료</option>
-              <option value="OVERDUE">지연</option>
-            </select>
-          </div>
-          <div className="flex flex-1 flex-col gap-1">
-            <label htmlFor="home-sort" className={compact ? "sr-only" : "text-xs font-medium text-ink-500"}>
-              정렬
-            </label>
-            <select id="home-sort" value={sort} onChange={(e) => setSort(e.target.value as SortOption)} className={inputClassName}>
-              {SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <label htmlFor="home-sort" className={compact ? "sr-only" : "text-xs font-medium text-ink-500"}>
+          정렬
+        </label>
+        <select id="home-sort" value={sort} onChange={(e) => setSort(e.target.value as SortOption)} className={inputClassName}>
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </form>
       {!compact && (
         <p className="label-coord text-[10px] text-ink-400">

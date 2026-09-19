@@ -416,7 +416,7 @@ export function Observatory({
               left. */}
           <div
             ref={doSeeRef}
-            className="pointer-events-auto mt-8 hidden overflow-y-auto text-left lg:mt-5 lg:block"
+            className="pointer-events-auto mt-8 hidden w-full overflow-y-auto text-left lg:mt-5 lg:block lg:w-72"
             style={{ maxHeight: doSeeMaxH ?? 420 }}
           >
             <RecentLogsPanel logs={recentLogs} compact />
@@ -442,9 +442,9 @@ export function Observatory({
                 onPrev();
               }}
               aria-label="이전 계획 별자리 보기"
-              className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full border border-ink-900/15 bg-[#F5F5F1]/70 text-ink-700 shadow-[0_8px_24px_-10px_rgba(17,17,15,0.35)] backdrop-blur-md backdrop-saturate-150 transition-colors hover:bg-[#E4E4DD] hover:text-ink-900 focus:outline-none focus-visible:bg-[#E4E4DD] focus-visible:text-ink-900 lg:flex"
+              className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/60 bg-ink-900/0 bg-gradient-to-br from-white/60 to-white/15 text-ink-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),inset_0_-1px_0_rgba(17,17,15,0.05),0_8px_24px_-8px_rgba(17,17,15,0.25)] ring-1 ring-ink-900/[0.06] backdrop-blur-xl backdrop-saturate-150 transition-[background-color,box-shadow,color] duration-150 hover:bg-ink-900/[0.06] hover:text-ink-900 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.85),inset_0_-1px_0_rgba(17,17,15,0.05),0_10px_28px_-8px_rgba(17,17,15,0.3)] focus:outline-none active:bg-ink-900/[0.12] focus-visible:bg-ink-900/10 focus-visible:text-ink-900 focus-visible:ring-2 focus-visible:ring-ink-900/25 lg:flex"
             >
-              <MdNavigateBefore aria-hidden="true" size={26} />
+              <MdNavigateBefore aria-hidden="true" size={22} />
             </button>
           )}
 
@@ -643,9 +643,9 @@ export function Observatory({
                 onNext();
               }}
               aria-label="다음 계획 별자리 보기"
-              className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full border border-ink-900/15 bg-[#F5F5F1]/70 text-ink-700 shadow-[0_8px_24px_-10px_rgba(17,17,15,0.35)] backdrop-blur-md backdrop-saturate-150 transition-colors hover:bg-[#E4E4DD] hover:text-ink-900 focus:outline-none focus-visible:bg-[#E4E4DD] focus-visible:text-ink-900 lg:flex"
+              className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/60 bg-ink-900/0 bg-gradient-to-br from-white/60 to-white/15 text-ink-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),inset_0_-1px_0_rgba(17,17,15,0.05),0_8px_24px_-8px_rgba(17,17,15,0.25)] ring-1 ring-ink-900/[0.06] backdrop-blur-xl backdrop-saturate-150 transition-[background-color,box-shadow,color] duration-150 hover:bg-ink-900/[0.06] hover:text-ink-900 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.85),inset_0_-1px_0_rgba(17,17,15,0.05),0_10px_28px_-8px_rgba(17,17,15,0.3)] focus:outline-none active:bg-ink-900/[0.12] focus-visible:bg-ink-900/10 focus-visible:text-ink-900 focus-visible:ring-2 focus-visible:ring-ink-900/25 lg:flex"
             >
-              <MdNavigateNext aria-hidden="true" size={26} />
+              <MdNavigateNext aria-hidden="true" size={22} />
             </button>
           )}
 
@@ -703,9 +703,9 @@ export function Observatory({
             hero's flex ordering; SEE is desktop-only here (HomeCarousel carries the mobile one). */}
         <div
           ref={readoutRef}
-          className="contents lg:pointer-events-none lg:absolute lg:bottom-8 lg:right-8 lg:z-10 lg:flex lg:w-72 lg:flex-col lg:items-end lg:gap-60"
+          className="contents lg:pointer-events-none lg:absolute lg:bottom-8 lg:right-8 lg:z-10 lg:flex lg:w-72 lg:flex-col lg:items-end lg:gap-6"
         >
-          <div className="pointer-events-auto hidden w-full text-left lg:block">
+          <div className="pointer-events-auto hidden w-full text-left lg:block lg:w-72">
             <EstimateVsActualPanel
               planId={plan.id}
               estimatedMinutes={estimatedMinutesTotal}
