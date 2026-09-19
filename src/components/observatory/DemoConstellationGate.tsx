@@ -214,13 +214,13 @@ export function DemoConstellationGate() {
         </div>
         <div className="flex w-full flex-col items-center gap-3">
           <Link
-            href="/?tab=login"
+            href="/login?tab=login"
             className="inline-flex w-full items-center justify-center rounded-sm bg-ink-900 px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900 focus-visible:ring-offset-2"
           >
             로그인하고 궤도 열기
           </Link>
           <Link
-            href="/?tab=signup"
+            href="/login?tab=signup"
             className="text-xs font-medium text-ink-500 underline underline-offset-2 transition-colors hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink-900 focus-visible:ring-offset-2"
           >
             처음이라면 회원가입

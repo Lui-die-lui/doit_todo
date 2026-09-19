@@ -11,7 +11,7 @@ export function LogoutButton() {
   async function handleClick() {
     setPending(true);
     await authClient.signOut();
-    router.push("/");
+    router.push("/login");
     router.refresh();
   }
 

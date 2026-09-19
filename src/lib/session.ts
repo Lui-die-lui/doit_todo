@@ -14,10 +14,10 @@ export const getSession = cache(async function getSession() {
 });
 
 /** For server components/layouts backing a data screen: redirects signed-out
- * browsers to the public login screen (`/`) instead of rendering the page. */
+ * browsers to the public login screen (`/login`) instead of rendering the page. */
 export async function requireSessionOrRedirect() {
   const session = await getSession();
-  if (!session) redirect("/");
+  if (!session) redirect("/login");
   return session;
 }
 

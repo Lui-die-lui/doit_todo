@@ -183,7 +183,7 @@ export async function revisePlanAction(
 
 export async function archivePlanAction(formData: FormData): Promise<void> {
   const userId = await getSessionUserId();
-  if (!userId) redirect("/");
+  if (!userId) redirect("/login");
 
   const planId = Number(formData.get("planId"));
   if (!Number.isInteger(planId) || planId <= 0) return;

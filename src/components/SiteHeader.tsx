@@ -76,7 +76,7 @@ export function SiteHeader({ userEmail }: { userEmail?: string | null }) {
             </>
           ) : (
             <Link
-              href="/"
+              href="/login"
               className="label-coord flex min-h-[32px] items-center px-3 text-[11px] text-ink-500 transition-colors hover:text-ink-900"
             >
               LOGIN

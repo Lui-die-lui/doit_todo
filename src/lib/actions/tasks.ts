@@ -140,7 +140,7 @@ export async function updateTaskAction(
 
 export async function softDeleteTaskAction(formData: FormData): Promise<void> {
   const userId = await getSessionUserId();
-  if (!userId) redirect("/");
+  if (!userId) redirect("/login");
 
   const taskId = Number(formData.get("taskId"));
   if (!Number.isInteger(taskId) || taskId <= 0) return;

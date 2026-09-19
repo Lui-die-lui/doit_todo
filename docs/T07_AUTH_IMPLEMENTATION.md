@@ -28,18 +28,19 @@ Doit(플랜두씨 다이어리) T07 — 이메일/비밀번호 + Google OAuth �
 - 핸들러: `/api/auth/sign-up/email` (Better Auth 기본 handler, [src/app/api/auth/[...all]/route.ts](../src/app/api/auth/%5B...all%5D/route.ts))
 
 ### 로그인 흐름
+- 화면: 로그인/회원가입 폼은 `/login`([src/app/login/page.tsx](../src/app/login/page.tsx))에 있고, 비로그인 첫 화면 `/`([src/app/page.tsx](../src/app/page.tsx))의 "로그인하고 궤도 열기"/"처음이라면 회원가입" 링크로 진입한다. 로그인 상태로 `/`나 `/login`에 오면 `/dashboard`로 redirect
 - UI: [src/components/auth/LoginForm.tsx](../src/components/auth/LoginForm.tsx) — `authClient.signIn.email(...)`
 - 존재하지 않는 이메일과 틀린 비밀번호에 동일 문구(`GENERIC_LOGIN_ERROR = "이메일 또는 비밀번호가 올바르지 않습니다."`) 사용
 - Google 로그인: [src/components/auth/GoogleContinueButton.tsx](../src/components/auth/GoogleContinueButton.tsx) — `authClient.signIn.social({ provider: "google" })`
 - 로그인 성공 후 `/dashboard`로 이동
 
 ### 로그아웃 흐름
-- [src/components/auth/LogoutButton.tsx](../src/components/auth/LogoutButton.tsx) — `authClient.signOut()` 호출 후 `/`로 이동. 서버는 해당 세션 행을 DB에서 삭제(Better Auth 내부 동작)하므로 이전 쿠키 재사용 시 거절됨(`docs/T07_EVIDENCE.md` §1)
+- [src/components/auth/LogoutButton.tsx](../src/components/auth/LogoutButton.tsx) — `authClient.signOut()` 호출 후 `/login`(로그인 화면)으로 이동. 서버는 해당 세션 행을 DB에서 삭제(Better Auth 내부 동작)하므로 이전 쿠키 재사용 시 거절됨(`docs/T07_EVIDENCE.md` §1)
 
 ### 자료 조회 흐름 / 소유권 검사
 - 소유권 모델: `doit_plans.user_id`를 기준으로, `doit_tasks`는 plan 조인, `doit_work_logs`/`reflections`/`completion_events`는 task→plan 조인으로 확인 — [src/lib/queries.ts](../src/lib/queries.ts), [src/lib/see-scope.ts](../src/lib/see-scope.ts) 전 함수가 첫 인자로 `userId`를 받아 WHERE 절에 강제 포함
 - 세션 검사 지점 (3중 방어):
-  1. **middleware** ([src/middleware.ts](../src/middleware.ts)): `/plans`, `/tasks`, `/do`, `/see`, `/mypage`에서 세션 쿠키 존재만 확인 후 없으면 `/`로 redirect. `/dashboard`는 로그인 없이도 빈 데모 화면을 보여줘야 해서 의도적으로 제외(아래 "범위 결정" 참고)
+  1. **middleware** ([src/middleware.ts](../src/middleware.ts)): `/plans`, `/tasks`, `/do`, `/see`, `/mypage`에서 세션 쿠키 존재만 확인 후 없으면 `/login`으로 redirect. `/dashboard`는 로그인 없이도 빈 데모 화면을 보여줘야 해서 의도적으로 제외(아래 "범위 결정" 참고)
   2. **페이지 레벨** ([src/lib/session.ts](../src/lib/session.ts)의 `requireSessionOrRedirect()`): 모든 자료 화면의 서버 컴포넌트 최상단에서 실제 세션을 재검증 후 없으면 redirect. 사용처: `dashboard/page.tsx`, `do/page.tsx`, `mypage/page.tsx`, `plans/*`, `see/*`, `tasks/*` 전 페이지
   3. **Server Action 레벨** ([src/lib/actions/*.ts](../src/lib/actions/)): `getSessionUserId()`로 매 액션마다 세션을 직접 읽고, 얻은 `userId`만 쿼리에 사용. 요청 body/hidden field로 들어온 `planId` 등은 **소유권 검사 없이는 절대 update/delete에 쓰지 않음**
   4. **API route** ([src/app/api/export/route.ts](../src/app/api/export/route.ts)): 세션 없으면 JSON `401`, 있으면 `session.user.id`만 사용
@@ -63,8 +64,8 @@ Doit(플랜두씨 다이어리) T07 — 이메일/비밀번호 + Google OAuth �
 ### Google 계정 자동 연결 정책
 - `account.accountLinking.enabled = false`로 명시 비활성화. 같은 이메일이어도 credential 계정과 Google 계정을 자동으로 합치지 않음(검증되지 않은 이메일 기반 강제 연결 금지 원칙)
 
-### 범위 결정: `/dashboard`를 middleware 보호 대상에서 제외
-- 사용자 요청에 따라 `/`(로그인 화면)뿐 아니라 `/dashboard`도 비로그인 상태에서 접근 가능하도록 결정. 단, 비로그인 상태의 `/dashboard`는 `DemoConstellationGate`라는 순수 장식용 컴포넌트만 렌더링하며 `getActivePlans()` 등 소유자 스코프 쿼리를 전혀 호출하지 않음 — 자료 노출 없이 화면만 공개
+### 범위 결정: 비로그인 첫 화면(`/`)과 `/dashboard`를 공개
+- 사용자 요청에 따라 비로그인 첫 화면 `/`는 로그인 폼이 아니라 비로그인 메인(`DemoConstellationGate`)을 보여주고, 로그인/회원가입 폼은 `/login`으로 분리했다(CLAUDE.md 4.2의 "`/`는 로그인 화면" 기본안에서 의도적으로 벗어난 결정). `/dashboard`도 비로그인 상태에서 접근 가능하다. 두 화면 모두 `DemoConstellationGate`라는 순수 장식용 컴포넌트만 렌더링하며 `getActivePlans()` 등 소유자 스코프 쿼리를 전혀 호출하지 않음 — 자료 노출 없이 화면만 공개
 - `/plans`, `/tasks`, `/do`, `/see`, `/mypage`는 기존 원칙대로 미인증 시 무조건 redirect
 
 ## ④ 안 열리는 것을 확인한 기록
@@ -121,10 +122,10 @@ IS_ANCESTOR_TRUE
 T06 최종 커밋: `82bce2e` (Swap favicon for the rounded-square artwork) — 현재 `assignment-7` 브랜치 HEAD의 조상임을 확인함.
 
 ### 4줄 확인 방법
-1. 제출 URL로 이동하면 로그인 화면(`/`)이 시크릿 창에서도 바로 보인다.
-2. 이메일/비밀번호를 입력하고 "로그인" 또는 "회원가입" → "로그인"을 누른다(3단계 이내: URL 진입 → 폼 입력 → 제출).
-3. **통과**: `/dashboard`로 이동하며 본인 계획/할 일이 보이고, 로그인 없이 `/plans` 등에 직접 접근하면 `/`로 돌아온다.
-4. **실패**: 로그인 후에도 `/`에 머물거나 오류가 뜨는 경우, 또는 로그인 없이 `/plans`/`/do`/`/see` 자료가 그대로 보이는 경우.
+1. 제출 URL로 이동하면 비로그인 메인(`/`, "로그인하고 궤도 열기" 버튼이 있는 화면)이 시크릿 창에서도 바로 보인다.
+2. "로그인하고 궤도 열기"를 눌러 `/login`으로 간 뒤 이메일/비밀번호를 입력하고 "로그인" 또는 "회원가입" → "로그인"을 누른다(3단계 이내: 버튼 클릭 → 폼 입력 → 제출).
+3. **통과**: `/dashboard`로 이동하며 본인 계획/할 일이 보이고, 로그인 없이 `/plans` 등에 직접 접근하면 `/login`으로 돌아온다.
+4. **실패**: 로그인 후에도 `/`나 `/login`에 머물거나 오류가 뜨는 경우, 또는 로그인 없이 `/plans`/`/do`/`/see` 자료가 그대로 보이는 경우.
 
 ### AI와 내 판단 3줄
 1. 인증 라이브러리 선정과 소유권 검사 설계는 AI가 CLAUDE.md 원칙에 맞춰 제안했고, 최종 채택 여부(NOT NULL 잠금 시점, `/dashboard` 공개 범위 등)는 사용자가 결정했다.

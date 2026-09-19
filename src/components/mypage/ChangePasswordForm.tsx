@@ -62,7 +62,7 @@ export function ChangePasswordForm() {
     }
 
     await authClient.signOut();
-    router.push("/?notice=password-changed");
+    router.push("/login?notice=password-changed");
     router.refresh();
   }
 

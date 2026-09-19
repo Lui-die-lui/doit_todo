@@ -40,7 +40,7 @@ export function DeleteAccountSection({ isCredentialAccount }: { isCredentialAcco
       return;
     }
 
-    router.push("/?notice=account-deleted");
+    router.push("/login?notice=account-deleted");
     router.refresh();
   }
 

@@ -13,7 +13,7 @@ export function GoogleContinueButton() {
     await authClient.signIn.social({
       provider: "google",
       callbackURL: "/dashboard",
-      errorCallbackURL: "/",
+      errorCallbackURL: "/login",
     });
   }
 
