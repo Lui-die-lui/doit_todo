@@ -1,0 +1,1 @@
+ALTER TABLE "doit_plans" ADD COLUMN "sort_order" integer;

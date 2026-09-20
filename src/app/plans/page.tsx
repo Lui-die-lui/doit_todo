@@ -11,6 +11,8 @@ import { MiniConstellation } from "@/components/constellation/MiniConstellation"
 import { PriorityBadge } from "@/components/Badges";
 import { PlanExportImport } from "@/components/PlanExportImport";
 import { PlanOrbitGraphic } from "@/components/plans/PlanOrbitGraphic";
+import { PlanSortableGrid } from "@/components/plans/PlanSortableGrid";
+import { reorderPlansAction } from "@/lib/actions/plans";
 import { PageHeader } from "@/components/PageHeader";
 import { formatDateOnly, minutesToLabel, seoulTodayDateString } from "@/lib/date";
 import { groupPlanData } from "@/lib/batch-grouping";
@@ -111,16 +113,21 @@ export default async function PlansPage() {
           </div>
         </div>
       ) : (
-        <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {rows.map(({ plan, layout, doneCount, totalCount, actualMinutesTotal, revisionCount, carriedTo }) => (
-            <li key={plan.id} className={plan.deletedAt ? "opacity-50" : undefined}>
+        <PlanSortableGrid
+          reorderAction={reorderPlansAction}
+          items={rows.map(({ plan, layout, doneCount, totalCount, actualMinutesTotal, revisionCount, carriedTo }) => ({
+            id: plan.id,
+            title: plan.title,
+            archived: plan.deletedAt !== null,
+            card: (
               <Link
                 href={`/plans/${plan.id}`}
+                draggable={false}
                 className="flex h-full flex-col gap-4 border border-line bg-surface p-5 transition-colors hover:border-ink-900 hover:bg-surface-muted"
               >
                 <div className="flex items-center gap-4">
                   <MiniConstellation layout={layout} title={plan.title} />
-                  <div className="min-w-0">
+                  <div className="min-w-0 pr-6">
                     <div className="mb-1 flex flex-wrap items-center gap-2">
                       <PriorityBadge priority={plan.priority} />
                       {plan.deletedAt && (
@@ -173,9 +180,9 @@ export default async function PlansPage() {
                   )}
                 </dl>
               </Link>
-            </li>
-          ))}
-        </ul>
+            ),
+          }))}
+        />
       )}
     </div>
   );

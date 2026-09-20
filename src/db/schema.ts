@@ -43,6 +43,10 @@ export const plans = pgTable("doit_plans", {
     (): AnyPgColumn => reflections.id,
     { onDelete: "set null" },
   ),
+  // The owner's manual display order (smaller = earlier), shared by the /plans list and
+  // the home carousel. Nullable on purpose: NULL means "never reordered", and those sort
+  // after every explicit value, newest first (see PLAN_ORDER in lib/queries.ts).
+  sortOrder: integer("sort_order"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

@@ -8,6 +8,8 @@ import { planRevisions, plans, reflections } from "@/db/schema";
 import type { ActionState } from "@/lib/action-state";
 import { AUTH_REQUIRED_ERROR, GENERIC_SAVE_ERROR } from "@/lib/db-errors";
 import { hmToMinutes } from "@/lib/date";
+import { mergePlanOrder, parseOrderedPlanIds } from "@/lib/plan-order";
+import { PLAN_ORDER } from "@/lib/queries";
 import { getSessionUserId } from "@/lib/session";
 import {
   planInputSchema,
@@ -65,10 +67,18 @@ export async function createPlanAction(
         sourceReflectionId = owned?.id ?? null;
       }
 
+      // A new plan goes to the front of the owner's order (matching the list's old
+      // newest-first behavior): one step before their smallest explicit position.
+      const [{ minOrder }] = await tx
+        .select({ minOrder: sql<number | null>`min(${plans.sortOrder})` })
+        .from(plans)
+        .where(eq(plans.userId, userId));
+
       const [inserted] = await tx
         .insert(plans)
         .values({
           userId,
+          sortOrder: (minOrder ?? 0) - 1,
           title: parsed.data.title,
           description: parsed.data.description ?? "",
           startDate: parsed.data.startDate,
@@ -179,6 +189,56 @@ export async function revisePlanAction(
   revalidatePath("/plans");
   revalidatePath("/dashboard");
   redirect(`/plans/${planId}`);
+}
+
+export type ReorderPlansResult = { ok: true } | { ok: false; message: string };
+
+/**
+ * Saves the owner's manual plan order. `orderedIds` is the full sequence they arranged; it is
+ * only honored if every id is one of *their own active* plans -- one foreign, archived or
+ * unknown id rejects the whole request and nothing is written (a stranger's id is
+ * indistinguishable from a missing one, same as the 404 policy elsewhere). The user id comes
+ * from the session, never from the request.
+ */
+export async function reorderPlansAction(orderedIds: number[]): Promise<ReorderPlansResult> {
+  const userId = await getSessionUserId();
+  if (!userId) return { ok: false, message: AUTH_REQUIRED_ERROR };
+
+  const ids = parseOrderedPlanIds(orderedIds);
+  if (!ids) return { ok: false, message: "순서를 저장할 수 없습니다. 다시 시도해 주세요." };
+
+  try {
+    await db.transaction(async (tx) => {
+      const current = await tx
+        .select({ id: plans.id })
+        .from(plans)
+        .where(and(eq(plans.userId, userId), isNull(plans.deletedAt)))
+        .orderBy(...PLAN_ORDER)
+        .for("update");
+      const currentIds = current.map((row) => row.id);
+      const owned = new Set(currentIds);
+      if (ids.some((id) => !owned.has(id))) throw new Error("PLAN_NOT_FOUND");
+
+      const finalOrder = mergePlanOrder(ids, currentIds);
+      for (let position = 0; position < finalOrder.length; position++) {
+        await tx
+          .update(plans)
+          .set({ sortOrder: position })
+          .where(and(eq(plans.id, finalOrder[position]), eq(plans.userId, userId)));
+      }
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === "PLAN_NOT_FOUND") {
+      return { ok: false, message: "존재하지 않거나 이미 삭제된 계획이 포함되어 있습니다." };
+    }
+    console.error("reorderPlansAction failed", err);
+    return { ok: false, message: GENERIC_SAVE_ERROR };
+  }
+
+  revalidatePath("/plans");
+  revalidatePath("/dashboard");
+  revalidatePath("/see");
+  return { ok: true };
 }
 
 export async function archivePlanAction(formData: FormData): Promise<void> {

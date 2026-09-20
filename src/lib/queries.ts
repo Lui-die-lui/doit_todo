@@ -12,12 +12,19 @@ import { compareTasksDefaultOrder } from "./tasks-sort";
  * plan/task's existence isn't leaked to a non-owner.
  */
 
+/**
+ * The one plan order the app uses, so the /plans list and the home carousel can never
+ * disagree: the owner's manual order first (sort_order, smallest first), then plans nobody
+ * has ever reordered (sort_order NULL) newest first, id as the final tiebreaker.
+ */
+export const PLAN_ORDER = [sql`${plans.sortOrder} asc nulls last`, desc(plans.createdAt), asc(plans.id)] as const;
+
 export async function getActivePlans(userId: string) {
   return db
     .select()
     .from(plans)
     .where(and(eq(plans.userId, userId), isNull(plans.deletedAt)))
-    .orderBy(desc(plans.startDate), asc(plans.id));
+    .orderBy(...PLAN_ORDER);
 }
 
 /** Picks the home-screen plan from an already-fetched active list: one whose date range covers today (Seoul), else the most recently created. */
@@ -37,12 +44,14 @@ export async function getHomePlan(userId: string, todaySeoul: string) {
   return pickHomePlan(active, todaySeoul);
 }
 
+/** Every plan of the owner, archived ones included -- active plans first in PLAN_ORDER, then
+ * the archived ones (they can't be reordered, so they trail the list in the same order). */
 export async function getAllPlans(userId: string) {
   return db
     .select()
     .from(plans)
     .where(eq(plans.userId, userId))
-    .orderBy(desc(plans.createdAt), asc(plans.id));
+    .orderBy(sql`${plans.deletedAt} is not null`, ...PLAN_ORDER);
 }
 
 export async function getPlanById(userId: string, planId: number) {

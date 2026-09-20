@@ -22,6 +22,13 @@
       "when": 1789734569219,
       "tag": "0002_t07_plans_user_id_not_null",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789879553071,
+      "tag": "0003_plans_sort_order",
+      "breakpoints": true
     }
   ]
 }
