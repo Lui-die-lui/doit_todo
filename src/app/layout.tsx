@@ -4,7 +4,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = {
-  title: "DO:IT — 내 플랜 이어보기",
+  title: "DO:IT — 내 계획 이어가기",
   description: "계획, 실행, 회고를 하나로 잇는 개인 다이어리",
 };
 
