@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { createWorkLogAction } from "@/lib/actions/worklogs";
 import type { WorkLogInput } from "@/lib/validation";
 import { FormField, inputClassName } from "@/components/FormField";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
+import { Select } from "@/components/ui/Select";
 import { SubmitButton } from "@/components/SubmitButton";
 
 export function WorkLogForm({
@@ -20,29 +22,28 @@ export function WorkLogForm({
     <form action={formAction} className="flex flex-col gap-5 border border-line bg-surface p-5 sm:p-7">
       <h2 className="label-coord text-[11px] text-ink-500">DO / NEW ENTRY — 실행 기록 추가</h2>
 
-      <FormField label="할 일" htmlFor="taskId" required error={errors.taskId as string | undefined}>
-        <select id="taskId" name="taskId" defaultValue={defaultTaskId ?? ""} required className={inputClassName}>
-          <option value="" disabled>
-            할 일을 선택하세요
-          </option>
-          {tasksByPlan.map((group) => (
-            <optgroup key={group.planTitle} label={group.planTitle}>
-              {group.tasks.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </FormField>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 min-[900px]:grid-cols-3">
+        <div className="sm:col-span-2 min-[900px]:col-span-1">
+          <FormField label="할 일" htmlFor="taskId" required error={errors.taskId as string | undefined}>
+            <Select
+              id="taskId"
+              name="taskId"
+              size="full"
+              defaultValue={defaultTaskId ? String(defaultTaskId) : ""}
+              required
+              placeholder="할 일을 선택하세요"
+              options={tasksByPlan.map((group) => ({
+                label: group.planTitle,
+                options: group.tasks.map((t) => ({ value: String(t.id), label: t.title })),
+              }))}
+            />
+          </FormField>
+        </div>
         <FormField label="시작 시각" htmlFor="startAt" required error={errors.startAt as string | undefined}>
-          <input id="startAt" name="startAt" type="datetime-local" required className={inputClassName} />
+          <DateTimePicker id="startAt" name="startAt" required />
         </FormField>
         <FormField label="종료 시각" htmlFor="endAt" required error={errors.endAt as string | undefined}>
-          <input id="endAt" name="endAt" type="datetime-local" required className={inputClassName} />
+          <DateTimePicker id="endAt" name="endAt" required />
         </FormField>
       </div>
 
@@ -62,7 +63,7 @@ export function WorkLogForm({
         </p>
       )}
 
-      <div>
+      <div className="flex justify-end">
         <SubmitButton>기록 저장</SubmitButton>
       </div>
     </form>

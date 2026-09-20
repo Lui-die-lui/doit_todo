@@ -5,11 +5,23 @@ import { PriorityBadge, TaskStatusBadge } from "@/components/Badges";
 import { priorityLabels, priorityValues } from "@/lib/validation";
 import { DEFAULT_SORT_DESCRIPTION, SORT_OPTIONS, getTaskComparator, type SortOption } from "@/lib/tasks-sort";
 import { inputClassName } from "@/components/FormField";
+import { Select } from "@/components/ui/Select";
 import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 type StatusFilter = "ALL" | "TODO" | "DONE" | "OVERDUE";
+
+const STATUS_OPTIONS = [
+  { value: "ALL", label: "전체" },
+  { value: "TODO", label: "진행 중" },
+  { value: "DONE", label: "완료" },
+  { value: "OVERDUE", label: "지연" },
+];
+const priorityOptions = [
+  { value: "ALL", label: "전체" },
+  ...priorityValues.map((p) => ({ value: p, label: priorityLabels[p] })),
+];
 
 export default async function TasksPage({
   searchParams,
@@ -55,63 +67,53 @@ export default async function TasksPage({
         </Link>
       </div>
 
-      <form method="get" className="flex flex-col gap-3 border border-line bg-surface p-4 sm:flex-row sm:flex-wrap sm:items-end">
-        <div className="flex min-w-[160px] flex-1 flex-col gap-1">
+      <form method="get" className="grid grid-cols-2 gap-3 border border-line bg-surface p-4 sm:flex sm:flex-wrap sm:items-end">
+        <div className="col-span-2 flex flex-col gap-1 sm:min-w-[160px] sm:flex-1">
           <label htmlFor="q" className="text-xs font-medium text-ink-500">
             검색(제목·설명)
           </label>
           <input id="q" name="q" defaultValue={q} className={inputClassName} placeholder="검색어" />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="status" className="text-xs font-medium text-ink-500">
             상태
           </label>
-          <select id="status" name="status" defaultValue={status} className={inputClassName}>
-            <option value="ALL">전체</option>
-            <option value="TODO">진행 중</option>
-            <option value="DONE">완료</option>
-            <option value="OVERDUE">지연</option>
-          </select>
+          <Select id="status" name="status" size="sm" defaultValue={status} options={STATUS_OPTIONS} />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="priority" className="text-xs font-medium text-ink-500">
             우선순위
           </label>
-          <select id="priority" name="priority" defaultValue={priority} className={inputClassName}>
-            <option value="ALL">전체</option>
-            {priorityValues.map((p) => (
-              <option key={p} value={p}>
-                {priorityLabels[p]}
-              </option>
-            ))}
-          </select>
+          <Select id="priority" name="priority" size="sm" defaultValue={priority} options={priorityOptions} />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="tag" className="text-xs font-medium text-ink-500">
             태그
           </label>
-          <select id="tag" name="tag" defaultValue={tag} className={inputClassName}>
-            <option value="ALL">전체</option>
-            {tags.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+          <Select
+            id="tag"
+            name="tag"
+            size="md"
+            defaultValue={tag}
+            options={[{ value: "ALL", label: "전체" }, ...tags.map((t) => ({ value: t, label: t }))]}
+          />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="sort" className="text-xs font-medium text-ink-500">
             정렬
           </label>
-          <select id="sort" name="sort" defaultValue={sort} className={inputClassName}>
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <Select
+            id="sort"
+            name="sort"
+            size="md"
+            defaultValue={sort}
+            options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+          />
         </div>
-        <button type="submit" className="inline-flex h-fit rounded-sm bg-ink-900 px-5 py-2.5 text-sm font-medium text-white hover:opacity-90">
+        <button
+          type="submit"
+          className="col-span-2 inline-flex min-h-[42px] items-center justify-center rounded-sm bg-ink-900 px-5 text-sm font-medium text-white hover:opacity-90 sm:col-span-1"
+        >
           필터 적용
         </button>
       </form>

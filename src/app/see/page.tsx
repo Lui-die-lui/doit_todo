@@ -13,7 +13,8 @@ import { priorityLabels } from "@/lib/validation";
 import { describeScope, encodeScope, getTasksForScope, type SeeScope } from "@/lib/see-scope";
 import { StatCard } from "@/components/StatCard";
 import { ReflectionForm } from "@/components/ReflectionForm";
-import { inputClassName } from "@/components/FormField";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
+import { Select } from "@/components/ui/Select";
 import { ConstellationCard } from "@/components/constellation/ConstellationCard";
 import { PageHeader } from "@/components/PageHeader";
 import { SeeFlowSteps } from "@/components/see/SeeFlowSteps";
@@ -132,37 +133,39 @@ export default async function SeePage({
           <label htmlFor="planId" className="text-sm font-medium text-ink-500">
             계획으로 보기
           </label>
-          <select id="planId" name="planId" defaultValue={scope.type === "plan" ? scope.planId : ""} className={inputClassName}>
-            {plans.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
-          </select>
+          <Select
+            id="planId"
+            name="planId"
+            size="lg"
+            defaultValue={String(
+              scope.type === "plan" && plans.some((p) => p.id === scope.planId) ? scope.planId : plans[0].id,
+            )}
+            options={plans.map((p) => ({ value: String(p.id), label: p.title }))}
+          />
         </div>
         <span className="label-coord pb-2 text-[10px] text-ink-400">OR</span>
         <div className="flex flex-col gap-1">
           <label htmlFor="rangeStart" className="text-sm font-medium text-ink-500">
             기간 시작 (마감일 기준)
           </label>
-          <input
+          <DateTimePicker
             id="rangeStart"
             name="rangeStart"
-            type="date"
+            dateOnly
+            className="sm:w-[200px]"
             defaultValue={scope.type === "range" ? scope.start : ""}
-            className={inputClassName}
           />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="rangeEnd" className="text-sm font-medium text-ink-500">
             기간 종료
           </label>
-          <input
+          <DateTimePicker
             id="rangeEnd"
             name="rangeEnd"
-            type="date"
+            dateOnly
+            className="sm:w-[200px]"
             defaultValue={scope.type === "range" ? scope.end : ""}
-            className={inputClassName}
           />
         </div>
         <button

@@ -17,7 +17,7 @@ export default async function NewTaskPage({
 
   if (plans.length === 0) {
     return (
-      <div className="border border-dashed border-line-strong bg-surface p-8 text-center text-sm text-ink-500">
+      <div className="mx-auto w-full max-w-2xl border border-dashed border-line-strong bg-surface p-8 text-center text-sm text-ink-500">
         할 일을 추가하려면 먼저 계획이 필요합니다.{" "}
         <Link href="/plans/new" className="font-medium text-ink-900 underline">
           계획 만들기
@@ -27,8 +27,8 @@ export default async function NewTaskPage({
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
-      <div>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+      <div className="text-center">
         <h1 className="label-coord text-xs text-ink-400">TASKS / NEW</h1>
         <h2 className="text-xl font-bold text-ink-900">새 할 일 추가</h2>
       </div>

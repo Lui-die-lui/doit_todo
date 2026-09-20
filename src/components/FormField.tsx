@@ -39,4 +39,4 @@ export function FormField({
 }
 
 export const inputClassName =
-  "w-full border border-line bg-surface px-3 py-2 text-sm text-ink-900 transition-colors placeholder:text-ink-400 hover:border-line-strong focus:border-ink-900 focus:outline-none focus:ring-1 focus:ring-ink-900";
+  "min-h-[42px] w-full border border-line bg-surface px-3 py-2 text-sm text-ink-900 transition-colors placeholder:text-ink-400 hover:border-line-strong focus:border-ink-900 focus:outline-none focus:ring-1 focus:ring-ink-900";

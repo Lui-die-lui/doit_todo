@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { PriorityBadge, TaskStatusBadge } from "@/components/Badges";
-import { inputClassName } from "@/components/FormField";
+import { Select } from "@/components/ui/Select";
 import { formatDateOnly, minutesToLabel } from "@/lib/date";
 import { DEFAULT_SORT_DESCRIPTION, SORT_OPTIONS, getTaskComparator, type SortOption } from "@/lib/tasks-sort";
 
@@ -35,6 +35,8 @@ export function HomeTaskList({
   const [sort, setSort] = useState<SortOption>("default");
 
   const rows = useMemo(() => [...tasks].sort(getTaskComparator(sort)), [tasks, sort]);
+  // The full list understands the same `sort` values (see SORT_OPTIONS), so the chosen order rides along in the URL.
+  const allTasksHref = sort === "default" ? "/tasks" : `/tasks?sort=${encodeURIComponent(sort)}`;
 
   return (
     <div className={compact ? "flex flex-col gap-2.5" : "flex flex-col gap-4"}>
@@ -45,13 +47,13 @@ export function HomeTaskList({
         <label htmlFor="home-sort" className={compact ? "sr-only" : "text-xs font-medium text-ink-500"}>
           정렬
         </label>
-        <select id="home-sort" value={sort} onChange={(e) => setSort(e.target.value as SortOption)} className={inputClassName}>
-          {SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <Select
+          id="home-sort"
+          size="full"
+          value={sort}
+          onValueChange={(v) => setSort(v as SortOption)}
+          options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        />
       </form>
       {!compact && (
         <p className="label-coord text-[10px] text-ink-400">
@@ -115,7 +117,7 @@ export function HomeTaskList({
           + 할 일 추가
         </Link>
         <Link
-          href="/tasks"
+          href={allTasksHref}
           className={
             compact
               ? "rounded-full bg-ink-900/10 px-3 py-1.5 text-ink-700 transition-colors hover:bg-ink-900/15 hover:text-ink-900"

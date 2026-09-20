@@ -5,8 +5,12 @@ import type { ActionState } from "@/lib/action-state";
 import { daysBetweenInclusive, minutesToHm, minutesToLabel } from "@/lib/date";
 import { priorityLabels, priorityValues, type PlanInput } from "@/lib/validation";
 import { FormField, inputClassName } from "@/components/FormField";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
+import { Select } from "@/components/ui/Select";
 import { SubmitButton } from "@/components/SubmitButton";
 import { PLAN_IMPORT_STORAGE_KEY, parsePlanExportJson } from "@/lib/plan-export";
+
+const PRIORITY_OPTIONS = priorityValues.map((p) => ({ value: p, label: priorityLabels[p] }));
 
 type PlanFormAction = (
   prevState: ActionState<keyof PlanInput | "reason">,
@@ -106,43 +110,22 @@ export function PlanForm({
 
       <div className="grid grid-cols-2 gap-4">
         <FormField label="시작일" htmlFor="startDate" required error={errors.startDate}>
-          <input
-            id="startDate"
-            name="startDate"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            required
-            className={inputClassName}
-          />
+          <DateTimePicker id="startDate" name="startDate" dateOnly value={startDate} onChange={setStartDate} required />
         </FormField>
         <FormField label="종료일" htmlFor="endDate" required error={errors.endDate}>
-          <input
-            id="endDate"
-            name="endDate"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            required
-            className={inputClassName}
-          />
+          <DateTimePicker id="endDate" name="endDate" dateOnly value={endDate} onChange={setEndDate} required />
         </FormField>
       </div>
 
       <FormField label="우선순위" htmlFor="priority" required error={errors.priority}>
-        <select
+        <Select
           id="priority"
           name="priority"
+          size="sm"
           defaultValue={effectiveDefaults?.priority ?? "MEDIUM"}
           required
-          className={inputClassName}
-        >
-          {priorityValues.map((p) => (
-            <option key={p} value={p}>
-              {priorityLabels[p]}
-            </option>
-          ))}
-        </select>
+          options={PRIORITY_OPTIONS}
+        />
       </FormField>
 
       <FormField
@@ -183,7 +166,7 @@ export function PlanForm({
               value={dailyHours}
               onChange={(e) => setDailyHours(e.target.value === "" ? "" : Number(e.target.value))}
               aria-label="하루 시간"
-              className={`${inputClassName} w-20 text-right tabular-nums`}
+              className={`${inputClassName} !w-20 shrink-0 text-right tabular-nums`}
             />
             <span className="text-sm text-ink-500">시간</span>
           </div>
@@ -199,7 +182,7 @@ export function PlanForm({
               value={dailyMinutes}
               onChange={(e) => setDailyMinutes(e.target.value === "" ? "" : Number(e.target.value))}
               aria-label="하루 분"
-              className={`${inputClassName} w-20 text-right tabular-nums`}
+              className={`${inputClassName} !w-20 shrink-0 text-right tabular-nums`}
             />
             <span className="text-sm text-ink-500">분</span>
           </div>
@@ -254,7 +237,7 @@ export function PlanForm({
         </p>
       )}
 
-      <div>
+      <div className="flex justify-end">
         <SubmitButton>{mode === "create" ? "계획 만들기" : "수정 저장"}</SubmitButton>
       </div>
     </form>

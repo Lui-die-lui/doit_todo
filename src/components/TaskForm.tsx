@@ -6,7 +6,11 @@ import { minutesToHm } from "@/lib/date";
 import { priorityLabels, priorityValues, type TaskInput } from "@/lib/validation";
 import { FormField, inputClassName } from "@/components/FormField";
 import { HourMinuteField } from "@/components/HourMinuteField";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
+import { Select } from "@/components/ui/Select";
 import { SubmitButton } from "@/components/SubmitButton";
+
+const PRIORITY_OPTIONS = priorityValues.map((p) => ({ value: p, label: priorityLabels[p] }));
 
 type TaskFormAction = (
   prevState: ActionState<keyof TaskInput>,
@@ -31,22 +35,15 @@ export function TaskForm({
   return (
     <form action={formAction} className="flex flex-col gap-6 border border-line bg-surface p-5 sm:p-7">
       <FormField label="계획" htmlFor="planId" required error={errors.planId}>
-        <select
+        <Select
           id="planId"
           name="planId"
-          defaultValue={defaultValues?.planId ?? ""}
+          size="full"
+          defaultValue={defaultValues?.planId ? String(defaultValues.planId) : ""}
           required
-          className={inputClassName}
-        >
-          <option value="" disabled>
-            계획을 선택하세요
-          </option>
-          {plans.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-        </select>
+          placeholder="계획을 선택하세요"
+          options={plans.map((p) => ({ value: String(p.id), label: p.title }))}
+        />
       </FormField>
 
       <FormField label="제목" htmlFor="title" required error={errors.title}>
@@ -67,36 +64,24 @@ export function TaskForm({
           name="description"
           defaultValue={defaultValues?.description ?? ""}
           maxLength={5000}
-          rows={3}
+          rows={4}
           className={`${inputClassName} resize-y`}
         />
       </FormField>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="마감일" htmlFor="dueDate" required error={errors.dueDate}>
-          <input
-            id="dueDate"
-            name="dueDate"
-            type="date"
-            defaultValue={defaultValues?.dueDate}
-            required
-            className={inputClassName}
-          />
+          <DateTimePicker id="dueDate" name="dueDate" dateOnly defaultValue={defaultValues?.dueDate} required />
         </FormField>
         <FormField label="우선순위" htmlFor="priority" required error={errors.priority}>
-          <select
+          <Select
             id="priority"
             name="priority"
+            size="full"
             defaultValue={defaultValues?.priority ?? "MEDIUM"}
             required
-            className={inputClassName}
-          >
-            {priorityValues.map((p) => (
-              <option key={p} value={p}>
-                {priorityLabels[p]}
-              </option>
-            ))}
-          </select>
+            options={PRIORITY_OPTIONS}
+          />
         </FormField>
       </div>
 
@@ -128,7 +113,7 @@ export function TaskForm({
         </p>
       )}
 
-      <div>
+      <div className="flex justify-end">
         <SubmitButton>{mode === "create" ? "할 일 추가" : "수정 저장"}</SubmitButton>
       </div>
     </form>

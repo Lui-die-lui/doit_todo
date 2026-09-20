@@ -19,8 +19,8 @@ export default async function EditTaskPage({ params }: { params: Promise<{ id: s
   const boundAction = updateTaskAction.bind(null, taskId);
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
-      <div>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+      <div className="text-center">
         <h1 className="label-coord text-xs text-ink-400">TASKS / EDIT</h1>
         <h2 className="text-xl font-bold text-ink-900">할 일 수정</h2>
       </div>

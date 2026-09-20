@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import { createReflectionAction } from "@/lib/actions/reflections";
 import { FormField, inputClassName } from "@/components/FormField";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
+import { Select } from "@/components/ui/Select";
 import { SubmitButton } from "@/components/SubmitButton";
 
 export function ReflectionForm({
@@ -24,38 +26,23 @@ export function ReflectionForm({
       <h2 className="label-coord text-[11px] text-ink-500">SEE / LOG ENTRY — 돌아보기 작성</h2>
 
       <FormField label="계획" htmlFor="reflection-planId" required error={errors.planId as string | undefined}>
-        <select id="reflection-planId" name="planId" defaultValue={defaultPlanId ?? ""} required className={inputClassName}>
-          <option value="" disabled>
-            계획을 선택하세요
-          </option>
-          {plans.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-        </select>
+        <Select
+          id="reflection-planId"
+          name="planId"
+          size="lg"
+          defaultValue={defaultPlanId ? String(defaultPlanId) : ""}
+          required
+          placeholder="계획을 선택하세요"
+          options={plans.map((p) => ({ value: String(p.id), label: p.title }))}
+        />
       </FormField>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="기간 시작" htmlFor="periodStart" required error={errors.periodStart as string | undefined}>
-          <input
-            id="periodStart"
-            name="periodStart"
-            type="date"
-            defaultValue={defaultPeriodStart}
-            required
-            className={inputClassName}
-          />
+          <DateTimePicker id="periodStart" name="periodStart" dateOnly defaultValue={defaultPeriodStart} required />
         </FormField>
         <FormField label="기간 종료" htmlFor="periodEnd" required error={errors.periodEnd as string | undefined}>
-          <input
-            id="periodEnd"
-            name="periodEnd"
-            type="date"
-            defaultValue={defaultPeriodEnd}
-            required
-            className={inputClassName}
-          />
+          <DateTimePicker id="periodEnd" name="periodEnd" dateOnly defaultValue={defaultPeriodEnd} required />
         </FormField>
       </div>
 
@@ -85,7 +72,7 @@ export function ReflectionForm({
         </p>
       )}
 
-      <div>
+      <div className="flex justify-end">
         <SubmitButton>돌아보기 저장</SubmitButton>
       </div>
     </form>

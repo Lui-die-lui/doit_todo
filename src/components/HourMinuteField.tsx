@@ -35,7 +35,7 @@ export function HourMinuteField({
             placeholder="0"
             defaultValue={defaultHours}
             aria-label="시간"
-            className={`${inputClassName} w-20 text-right tabular-nums`}
+            className={`${inputClassName} !w-20 shrink-0 text-right tabular-nums`}
           />
           <span className="text-sm text-ink-500">시간</span>
         </div>
@@ -51,7 +51,7 @@ export function HourMinuteField({
             placeholder="0"
             defaultValue={defaultMinutes}
             aria-label="분"
-            className={`${inputClassName} w-20 text-right tabular-nums`}
+            className={`${inputClassName} !w-20 shrink-0 text-right tabular-nums`}
           />
           <span className="text-sm text-ink-500">분</span>
         </div>

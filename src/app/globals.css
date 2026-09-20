@@ -220,6 +220,83 @@ a {
   animation: gate-orbit-spin 44s linear infinite;
 }
 
+/* Radix Select locks page scroll while its menu is open (react-remove-scroll): it sets
+   overflow:hidden on <body>, which removes the viewport scrollbar, and pads the body to make up
+   for it -- so the whole page shifts sideways every time a dropdown opens or closes. Undo just
+   that styling; the library still blocks wheel/touch scrolling outside the menu. */
+html body[data-scroll-locked] {
+  overflow: visible !important;
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Shared dropdown (components/ui/Select.tsx): fade + 3px slide, no spring/bounce. */
+@keyframes doit-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.doit-select-content[data-state="open"],
+.doit-picker-content[data-state="open"] {
+  animation: doit-select-in 140ms ease-out both;
+}
+
+/* Phones: the date picker docks to the bottom of the screen (16px side/bottom margins) instead of
+   floating beside a field that may sit mid-page, so the calendar and the time row fit together. */
+@media (max-width: 639px) {
+  [data-radix-popper-content-wrapper]:has(> .doit-picker-content) {
+    position: fixed !important;
+    inset: auto 16px 16px 16px !important;
+    transform: none !important;
+    min-width: 0 !important;
+    width: auto !important;
+  }
+}
+
+/* Desktop, when the field has no room for the full panel above or below it: centre it on screen. */
+@media (min-width: 640px) {
+  [data-radix-popper-content-wrapper]:has(> .doit-picker-content[data-docked]) {
+    position: fixed !important;
+    inset: 0 !important;
+    margin: auto !important;
+    transform: none !important;
+    width: fit-content !important;
+    height: fit-content !important;
+    min-width: 0 !important;
+  }
+}
+
+/* Shared calendar (components/ui/DateTimePicker.tsx): a small dot marks today, a tiny star marks
+   the chosen day. Kept to these two accents -- no ornament beyond them. */
+.doit-cal td[data-today="true"] button::before {
+  content: "";
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  margin-left: -1.5px;
+  border-radius: 9999px;
+  background: #11110f;
+}
+.doit-cal td[data-selected="true"] button::before {
+  background: #ffffff;
+}
+.doit-cal td[data-selected="true"] button::after {
+  content: "★";
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font-size: 7px;
+  line-height: 1;
+  color: #ffffff;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -227,5 +304,9 @@ a {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+  .doit-select-content[data-state="open"],
+  .doit-picker-content[data-state="open"] {
+    animation: none;
   }
 }
