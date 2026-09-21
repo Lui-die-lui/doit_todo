@@ -8,10 +8,13 @@ import {
   getReflectionsForPlan,
   getWorkLogsForTaskIds,
 } from "@/lib/queries";
+import { computeRetroAggregation } from "@/lib/aggregations";
+import { encodeScope } from "@/lib/see-scope";
 import { PriorityBadge, TaskStatusBadge } from "@/components/Badges";
 import { formatDateOnly, formatDateTimeSeoul, isOverdue, minutesToLabel, seoulTodayDateString } from "@/lib/date";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { ConstellationCard } from "@/components/constellation/ConstellationCard";
+import { AggregationCards } from "@/components/see/AggregationCards";
 import { requireSessionOrRedirect } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +36,9 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   ]);
   const workLogs = await getWorkLogsForTaskIds(userId, tasks.map((t) => t.id));
   const today = seoulTodayDateString();
+  // Same numbers /see shows for this plan: same active-task scope, same aggregation function.
+  const aggregation = computeRetroAggregation(tasks, workLogs, today);
+  const scopeParam = encodeURIComponent(encodeScope({ type: "plan", planId: plan.id }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -97,6 +103,18 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
               )}
             </div>
           )}
+
+          <section aria-labelledby="plan-retro-heading" className="flex flex-col gap-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 id="plan-retro-heading" className="label-coord text-[10px] text-ink-400">
+                돌아보기 · 집계
+              </h2>
+              <Link href={`/see?planId=${plan.id}`} className="text-xs font-medium text-ink-900 hover:underline">
+                돌아보기 화면 →
+              </Link>
+            </div>
+            <AggregationCards scopeParam={scopeParam} aggregation={aggregation} compact />
+          </section>
         </div>
 
         <div className="order-1 lg:order-2">
