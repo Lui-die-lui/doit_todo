@@ -329,12 +329,12 @@ $ git diff --check
 
 | 파일 | 화면 | 확인 내용 |
 |---|---|---|
-| <img src="../image/run/landing.png" width="260"><br> | `/` 비로그인 첫 화면 | "OBSERVATORY · LOCKED" 잠금 게이트만 보이고 실제 계획/할 일 등 자료는 전혀 없음. "로그인하고 궤도 열기" / "처음이라면 회원가입" 진입점만 존재 — CLAUDE.md 4.2·11의 "미인증 상태에서 자료 비노출" 요건과 일치 |
-| <img src="../image/run/login.png" width="260"><br> | `/login` 로그인 탭 | 이메일/비밀번호 입력란 + "Google로 계속하기" 버튼. 비밀번호 입력란은 `type="password"`로 마스킹 표시 |
-| <img src="../image/run/join.png" width="260"><br> | `/login` 회원가입 탭 | 이름/이메일/비밀번호(8자 이상 안내)/비밀번호 확인 입력란 + Google 가입 버튼. 로그인 탭과 같은 화면에서 탭 전환(`AuthScreen.tsx`)으로 구현됨 |
-| <img src="../image/run/main.png" width="260"><br> | `/dashboard` 로그인 후 | 실사용자(이슬기)의 실제 계획 "정보처리기사 실기 공부" 별자리, 우측 상단 "PRIVATE · MY VIEW", TASKS 패널, DO 최근 실행 기록(09-22 09:00~10:00 포함 5건), SEE 예상 대 실제(EST 30h30m / ACTUAL 18h18m / DIFF -12h12m) — 로그인해야만 보이는 화면이며 우측 상단 nav에 PLAN/DO/SEE/MY/LOGOUT이 모두 노출됨(비로그인 시 HOME만 노출되는 것과 대조) |
-| <img src="../image/run/see.png" width="260"><br> | `/see` 돌아보기 | 계획된 할일 14건 · 완료 13건 · 지연 0건 · 막힘 4건 · 예상 30시간30분 · 실제 18시간18분 · 차이 -12시간12분. 아래 §화면-코드 대조표 참고 |
-| <img src="../image/run/complite.png" width="260"><br> | `/tasks` 전체 할 일 목록 | plan 3·48의 할 일이 검색/상태/우선순위/태그/정렬 필터와 함께 나열되며, 완료 처리된 항목에 "★완료" 배지가 붙어 있음 |
+| <img src="../image/run/landing.png" width="420"><br> | `/` 비로그인 첫 화면 | "OBSERVATORY · LOCKED" 잠금 게이트만 보이고 실제 계획/할 일 등 자료는 전혀 없음. "로그인하고 궤도 열기" / "처음이라면 회원가입" 진입점만 존재 — CLAUDE.md 4.2·11의 "미인증 상태에서 자료 비노출" 요건과 일치 |
+| <img src="../image/run/login.png" width="420"><br> | `/login` 로그인 탭 | 이메일/비밀번호 입력란 + "Google로 계속하기" 버튼. 비밀번호 입력란은 `type="password"`로 마스킹 표시 |
+| <img src="../image/run/join.png" width="420"><br> | `/login` 회원가입 탭 | 이름/이메일/비밀번호(8자 이상 안내)/비밀번호 확인 입력란 + Google 가입 버튼. 로그인 탭과 같은 화면에서 탭 전환(`AuthScreen.tsx`)으로 구현됨 |
+| <img src="../image/run/main.png" width="420"><br> | `/dashboard` 로그인 후 | 실사용자(이슬기)의 실제 계획 "정보처리기사 실기 공부" 별자리, 우측 상단 "PRIVATE · MY VIEW", TASKS 패널, DO 최근 실행 기록(09-22 09:00~10:00 포함 5건), SEE 예상 대 실제(EST 30h30m / ACTUAL 18h18m / DIFF -12h12m) — 로그인해야만 보이는 화면이며 우측 상단 nav에 PLAN/DO/SEE/MY/LOGOUT이 모두 노출됨(비로그인 시 HOME만 노출되는 것과 대조) |
+| <img src="../image/run/see.png" width="420"><br> | `/see` 돌아보기 | 계획된 할일 14건 · 완료 13건 · 지연 0건 · 막힘 4건 · 예상 30시간30분 · 실제 18시간18분 · 차이 -12시간12분. 아래 §화면-코드 대조표 참고 |
+| <img src="../image/run/complite.png" width="420"><br> | `/tasks` 전체 할 일 목록 | plan 3·48의 할 일이 검색/상태/우선순위/태그/정렬 필터와 함께 나열되며, 완료 처리된 항목에 "★완료" 배지가 붙어 있음 |
 
 ### 화면(see.png) ↔ 코드 계산 대조표
 
