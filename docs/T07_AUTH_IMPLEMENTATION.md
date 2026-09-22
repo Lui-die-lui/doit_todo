@@ -109,7 +109,7 @@ Doit(플랜두씨 다이어리) T07 — 이메일/비밀번호 + Google OAuth �
 ---
 
 ### 결과물 URL
-- (배포 URL은 실제 배포 후 기입 — 사용자가 Vercel 배포 후 직접 채워야 함)
+- https://doitdiary.vercel.app/ (2026-09-22 확인: 200 응답, 비로그인 상태에서 "로그인하고 궤도 열기" 게이트만 노출되고 실제 사용자 자료는 응답 HTML에 없음, `/api/export`는 401)
 
 ### 소스 URL
 - https://github.com/Lui-die-lui/doit_todo
