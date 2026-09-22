@@ -1,6 +1,6 @@
 # SUBMISSION — T07 (인증 + 사용자별 데이터 격리)
 
-세부 근거는 [docs/T07_AUTH_IMPLEMENTATION.md](docs/T07_AUTH_IMPLEMENTATION.md)(구현 설명 6항목)와 [docs/T07_EVIDENCE.md](docs/T07_EVIDENCE.md)(5일 기록 ↔ Git 이력 대조, 계산 검산, 인증/소유권 원시 증거)에 있다. 이 문서는 그 요약이다.
+세부 근거는 [docs/T07_AUTH_IMPLEMENTATION.md](docs/T07_AUTH_IMPLEMENTATION.md)(구현 설명 6항목)와 [docs/T07_EVIDENCE.md](docs/T07_EVIDENCE.md)(5일 기록 ↔ Git 이력 대조, 계산 검산, 인증/소유권 원시 증거, 실제 화면 캡처 6장)에 있다. 이 문서는 그 요약이다.
 
 ## 결과물 주소
 - https://doitdiary.vercel.app/
@@ -35,7 +35,7 @@
 | 서로 다른 실제 날짜 5개 사용 기록 | 통과 |
 | 1일차 지표(질문/단위/계산식) 사전 고정 | **미충족** — 사전 고정 선언 기록 없음 |
 | 2~3일차 사이 계획 규칙 변경 | **미충족** — 조건을 만족하는 Git 이력 없음 |
-| 5일 합계/평균과 코드 계산 일치 | 통과 (화면 스크린샷 대조는 로그인 정보 없어 미수행, 코드 직접 실행 + 손계산으로 대체 검증) |
+| 5일 합계/평균과 코드 계산 일치 | 통과 — 코드 직접 실행 + 손계산 + 실제 SEE 화면 캡처(`image/run/see.png`) 3중 대조, 전부 일치 |
 | lint / typecheck / test / build | 전부 통과 |
 | secret 노출 없음 | 통과 |
 

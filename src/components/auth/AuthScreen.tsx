@@ -44,7 +44,7 @@ export function AuthScreen() {
         <p className="label-coord text-[10px] text-ink-400">
           DO:IT · PLAN YOUR ORBIT.
         </p>
-        <h1 className="mt-1 text-2xl font-bold text-ink-900">로그인</h1>
+        <h1 className="mt-1 text-2xl font-bold text-ink-900">DO:IT</h1>
       </div>
 
       {hasOAuthError && (
