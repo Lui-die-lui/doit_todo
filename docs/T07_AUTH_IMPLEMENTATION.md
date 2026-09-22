@@ -28,7 +28,7 @@ Doit(플랜두씨 다이어리) T07 — 이메일/비밀번호 + Google OAuth �
 - 핸들러: `/api/auth/sign-up/email` (Better Auth 기본 handler, [src/app/api/auth/[...all]/route.ts](../src/app/api/auth/%5B...all%5D/route.ts))
 
 ### 로그인 흐름
-- 화면: 로그인/회원가입 폼은 `/login`([src/app/login/page.tsx](../src/app/login/page.tsx))에 있고, 비로그인 첫 화면 `/`([src/app/page.tsx](../src/app/page.tsx))의 "로그인하고 궤도 열기"/"처음이라면 회원가입" 링크로 진입한다. 로그인 상태로 `/`나 `/login`에 오면 `/dashboard`로 redirect
+- 화면: 로그인/회원가입 폼은 `/login`([src/app/login/page.tsx](../src/app/login/page.tsx), 로그인/가입 폼 전환은 [src/components/auth/AuthScreen.tsx](../src/components/auth/AuthScreen.tsx))에 있고, 비로그인 첫 화면 `/`([src/app/page.tsx](../src/app/page.tsx))의 "로그인하고 궤도 열기"/"처음이라면 회원가입" 링크로 진입한다. 로그인 상태로 `/`나 `/login`에 오면 `/dashboard`로 redirect
 - UI: [src/components/auth/LoginForm.tsx](../src/components/auth/LoginForm.tsx) — `authClient.signIn.email(...)`
 - 존재하지 않는 이메일과 틀린 비밀번호에 동일 문구(`GENERIC_LOGIN_ERROR = "이메일 또는 비밀번호가 올바르지 않습니다."`) 사용
 - Google 로그인: [src/components/auth/GoogleContinueButton.tsx](../src/components/auth/GoogleContinueButton.tsx) — `authClient.signIn.social({ provider: "google" })`
@@ -70,7 +70,7 @@ Doit(플랜두씨 다이어리) T07 — 이메일/비밀번호 + Google OAuth �
 
 ## ④ 안 열리는 것을 확인한 기록
 
-자동 테스트: [tests/auth-ownership.test.ts](../tests/auth-ownership.test.ts) — CLAUDE.md 9.1의 11개 시나리오 전부를 12개 `it()` 블록으로 커버, 최종 12/12 통과(`npm run test:auth`). 증거 스크립트: [scripts/t07-auth-evidence.ts](../scripts/t07-auth-evidence.ts)(`npm run t07:evidence`) 실행 결과 원본은 [docs/T07_EVIDENCE.md](./T07_EVIDENCE.md) 참고. 아래는 그 실행에서 나온 성공/거절 쌍 요약표.
+자동 테스트: [tests/auth-ownership.test.ts](../tests/auth-ownership.test.ts) — CLAUDE.md 9.1의 11개 시나리오 전부를 12개 `it()` 블록으로 커버, 2026-09-22 재실행 12/12 통과(`npm run test:auth`, 실서버 warm 상태). 전체 테스트(`npm run test`)는 11 파일 131개 전부 통과. 증거 스크립트: [scripts/t07-auth-evidence.ts](../scripts/t07-auth-evidence.ts)(`npm run t07:evidence`) 를 2026-09-22 현재 코드로 재실행해 09-18 최초 실행과 동일한 결과를 재확인했다 — 원본은 [docs/T07_EVIDENCE.md](./T07_EVIDENCE.md) 3부 참고. 아래는 그 실행에서 나온 성공/거절 쌍 요약표.
 
 | # | 항목 | method/path | 계정 별칭 | status | 판정 |
 |---|---|---|---|---|---|
@@ -109,42 +109,48 @@ Doit(플랜두씨 다이어리) T07 — 이메일/비밀번호 + Google OAuth �
 ---
 
 ### 결과물 URL
-- (배포 URL은 실제 배포 후 기입)
+- (배포 URL은 실제 배포 후 기입 — 사용자가 Vercel 배포 후 직접 채워야 함)
 
 ### 소스 URL
-- (저장소 URL은 실제 공개/제출 시 기입)
+- https://github.com/Lui-die-lui/doit_todo
 
 ### T06 → T07 조상 관계 확인
 ```
 $ git merge-base --is-ancestor 82bce2e HEAD && echo IS_ANCESTOR_TRUE
 IS_ANCESTOR_TRUE
+$ git branch --show-current
+main
+$ git rev-parse HEAD
+09fd0938f97da3b85f37d5c59c61f8b092cbf6f4
 ```
-T06 최종 커밋: `82bce2e` (Swap favicon for the rounded-square artwork) — 현재 `assignment-7` 브랜치 HEAD의 조상임을 확인함.
+T06 최종 커밋: `82bce2e`(`82bce2e9f456602e3694877842111d2ebd6b15e8`, "Swap favicon for the rounded-square artwork") — 별도 브랜치가 아니라 `main` 브랜치 HEAD(`09fd093`)의 조상임을 확인함. `origin/main`도 동일 커밋을 가리켜(push 완료 상태) 로컬/원격 이력이 일치한다.
 
 ### 4줄 확인 방법
-1. 제출 URL로 이동하면 비로그인 메인(`/`, "로그인하고 궤도 열기" 버튼이 있는 화면)이 시크릿 창에서도 바로 보인다.
+1. 제출 URL로 이동하면 비로그인 메인(`/`, 자료가 없는 장식용 별자리 + "로그인하고 궤도 열기" 버튼)이 시크릿 창에서도 바로 보인다.
 2. "로그인하고 궤도 열기"를 눌러 `/login`으로 간 뒤 이메일/비밀번호를 입력하고 "로그인" 또는 "회원가입" → "로그인"을 누른다(3단계 이내: 버튼 클릭 → 폼 입력 → 제출).
-3. **통과**: `/dashboard`로 이동하며 본인 계획/할 일이 보이고, 로그인 없이 `/plans` 등에 직접 접근하면 `/login`으로 돌아온다.
-4. **실패**: 로그인 후에도 `/`나 `/login`에 머물거나 오류가 뜨는 경우, 또는 로그인 없이 `/plans`/`/do`/`/see` 자료가 그대로 보이는 경우.
+3. **통과**: `/dashboard`로 이동하며 본인 계획/할 일이 보이고, 로그인 없이 `/plans`·`/tasks`·`/do`·`/see`·`/mypage`에 직접 접근하면 `/login`으로 돌아온다.
+4. **실패**: 로그인 후에도 `/`나 `/login`에 머물거나 오류가 뜨는 경우, 또는 로그인 없이 위 자료 화면들이 그대로 보이는 경우.
 
 ### AI와 내 판단 3줄
-1. 인증 라이브러리 선정과 소유권 검사 설계는 AI가 CLAUDE.md 원칙에 맞춰 제안했고, 최종 채택 여부(NOT NULL 잠금 시점, `/dashboard` 공개 범위 등)는 사용자가 결정했다.
-2. 실제 DB에 영향을 주는 모든 작업(마이그레이션 실행, orphan 데이터 삭제, Playwright 의존성 추가)은 AI가 먼저 조사 결과를 보고하고 사용자 승인을 받은 뒤에만 실행했다.
-3. AI가 최초 보고에서 orphan 데이터의 정체를 잘못 판단했던 것을 사용자가 재확인을 요구해 바로잡았다 — 자동화된 조사도 실행 전 재검증이 필요함을 보여준 사례다.
+1. 인증 라이브러리 선정과 소유권 검사 설계는 AI가 CLAUDE.md 원칙에 맞춰 제안했고, 최종 채택 여부(NOT NULL 잠금 시점, `/dashboard` 공개 범위, 비로그인 첫 화면을 `/login`과 분리할지 등)는 사용자가 결정했다.
+2. 실제 DB에 영향을 주는 모든 작업(마이그레이션 실행, orphan 데이터 삭제, Playwright 의존성 추가)은 AI가 먼저 조사 결과를 보고하고 사용자 승인을 받은 뒤에만 실행했다. 5일간의 실제 사용(계획 작성, 할 일 실행, 회고)과 계획 규칙 변경 여부는 전적으로 사용자가 직접 수행했다.
+3. AI가 최초 보고에서 orphan 데이터의 정체를 잘못 판단했던 것을 사용자가 재확인을 요구해 바로잡았다. 이번 제출 문서 정리 과정에서도 AI는 "2~3일차 사이 계획 규칙 변경"을 찾기 위해 Git 이력을 직접 대조했고, 그럴듯한 후보(`dc13491`의 "하루 총 투입 시간" 변경)가 있었지만 시각·실사용 반영 여부를 엄격히 따진 끝에 조건을 만족하지 않는다고 결론 내렸다 — 있었으면 하는 사실을 만들어내지 않고 실제 상태를 그대로 보고한 사례다.
 
 ### 5일 실제 기록 표와 규칙 변경 전후 비교
-- **구현 완료 / 과제 완주 대기**: 인증·격리 구현은 끝났지만, Asia/Seoul 기준 실제 5일 사용 기록과 2~3일차 사이 규칙 변경은 시간이 지나야 채워지는 항목이라 아직 진행 전이다. 완료 후 이 절을 실제 표와 비교값으로 갱신한다.
+- **실제 5일 사용 기록: 통과.** Asia/Seoul 기준 서로 다른 실제 날짜 5개(2026-09-18~09-22)에 각각 실행 기록(work log)이 존재하며, 각 날짜와 Git commit 이력을 대조한 전체 표는 [docs/T07_EVIDENCE.md](./T07_EVIDENCE.md) 1부에 있다.
+- **1일차 지표 사전 고정: 미충족.** 질문/지표/단위/계산 규칙을 1일차 이전에 명시적으로 고정 선언한 기록이 없다(코드의 계산식 자체는 5일 내내 동일하게 쓰였다는 것은 확인됨). 자세한 내용은 [docs/T07_EVIDENCE.md](./T07_EVIDENCE.md) 2-1.
+- **2~3일차 사이 규칙 변경: 미충족.** 해당 시간대(2일차 마지막 기록~3일차 첫 기록)의 commit을 전수 조사했으나, 조건(계획 규칙 변경 + 그 시간대 + 1·2일차 근거)을 모두 만족하는 commit을 찾지 못했다. 조사 과정과 후보 commit 전체는 [docs/T07_EVIDENCE.md](./T07_EVIDENCE.md) 2-2 참고.
 
 ### 화면 합계·평균과 손계산 대조
-- 5일 기록 완료 후 함께 갱신 예정(위 항목과 동일 사유로 현재는 대조 불가).
+- **통과.** 실제 SEE 화면 스크린샷 대조는 실사용자 로그인 자격 증명이 없어 수행하지 못했지만, 그 화면이 호출하는 것과 동일한 함수(`computeRetroAggregation`)를 동일한 DB 값으로 직접 실행한 결과와 순수 손계산이 정확히 일치함을 확인했다(estimated 1650분 / actual 1098분 / diff -552분, blockedCount 4건 — 전부 일치). 5일 실행 기록의 날짜별 합계·평균(합계 1098분, 평균 220분/일, 반올림 전 219.6)도 함께 검산했다. 표와 계산 과정 전체는 [docs/T07_EVIDENCE.md](./T07_EVIDENCE.md) 2-3.
 
 ### 내보내기 파일 예시(비밀정보 없음)
 ```json
 {
   "schemaVersion": "2.0.0",
-  "exportedAt": "2026-09-18T12:52:40.113Z",
-  "user": { "id": "AQxttWynICyjkbmYAbKbUHY6tfOhskOM", "name": "T07 Evidence A", "email": "t07-evidence-a-…@example.com" },
-  "plans": [ { "id": 34, "userId": "AQxttWynICyjkbmYAbKbUHY6tfOhskOM", "title": "T07 evidence plan A", "...": "..." } ],
+  "exportedAt": "2026-09-22T01:33:33.629Z",
+  "user": { "id": "OFxZooYOwAoDphsMS0lMEKHypHFdoRZT", "name": "T07 Evidence A", "email": "t07-evidence-a-…@example.com" },
+  "plans": [ { "id": 150, "userId": "OFxZooYOwAoDphsMS0lMEKHypHFdoRZT", "title": "T07 evidence plan A", "...": "..." } ],
   "planRevisions": [],
   "tasks": [],
   "workLogs": [],
@@ -152,4 +158,4 @@ T06 최종 커밋: `82bce2e` (Swap favicon for the rounded-square artwork) — �
   "reflections": []
 }
 ```
-(위는 `scripts/t07-auth-evidence.ts` 실행 중 생성된 임시 증거 계정의 실제 export 응답이며, 해당 계정/자료는 스크립트 종료 시 자동 정리됨. password hash, session token, OAuth token 등 secret 필드는 export 스키마 자체에 존재하지 않음.)
+(위는 `scripts/t07-auth-evidence.ts`를 2026-09-22 현재 코드로 재실행해 생성된 임시 증거 계정의 실제 export 응답이며, 해당 계정/자료는 스크립트 종료 시 자동 정리됨. password hash, session token, OAuth token 등 secret 필드는 export 스키마 자체에 존재하지 않음.)
